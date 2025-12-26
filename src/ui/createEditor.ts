@@ -107,8 +107,8 @@ function syncGutterLineHeights(mirror: HTMLElement, gutter: HTMLElement) {
   const count = Math.min(mirrorLines.length, gutterLines.length)
 
   for (let index = 0; index < count; index++) {
-    const height = mirrorLines[index].offsetHeight
-    if (height > 0) gutterLines[index].style.minHeight = `${height}px`
+    const height = mirrorLines[index].getBoundingClientRect().height
+    gutterLines[index].style.height = height > 0 ? `${height.toFixed(2)}px` : ''
   }
 }
 

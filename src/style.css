@@ -100,7 +100,7 @@ body {
   display: inline-block;
   cursor: pointer;
   padding-inline: 8px;
-  padding-block: 2px;
+  padding-block: 0;
   border-radius: 8px;
 }
 
