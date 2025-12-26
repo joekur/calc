@@ -1,4 +1,5 @@
 import { fireEvent } from '@testing-library/dom'
+import { expect, test } from 'vitest'
 import { createEditor } from './createEditor'
 
 test('mirrors textarea input', () => {
@@ -17,4 +18,3 @@ test('mirrors textarea input', () => {
   expect(mirror.textContent).toContain('hello')
   expect(mirror.textContent).toContain('world')
 })
-
