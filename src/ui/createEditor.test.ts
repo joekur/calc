@@ -91,6 +91,32 @@ test('renders evaluation results in the gutter', () => {
   expect(gutter.textContent).toContain('6')
 })
 
+test('clicking a gutter value copies it', async () => {
+  const writeText = vi.fn().mockResolvedValue(undefined)
+  ;(navigator as any).clipboard = { writeText }
+
+  const editor = createEditor()
+  document.body.append(editor)
+
+  const input = editor.querySelector<HTMLTextAreaElement>('textarea.input')
+  const gutter = editor.querySelector<HTMLDivElement>('.gutter')
+  expect(input).not.toBeNull()
+  expect(gutter).not.toBeNull()
+  if (!input || !gutter) return
+
+  input.value = '2 + 2\n'
+  fireEvent.input(input)
+
+  const value = gutter.querySelector<HTMLElement>('.gutterValue-copyable')
+  expect(value).not.toBeNull()
+  if (!value) return
+
+  fireEvent.click(value)
+
+  await Promise.resolve()
+  expect(writeText).toHaveBeenCalledWith('4')
+})
+
 test('keeps showing last valid value while typing errors', () => {
   const editor = createEditor()
   document.body.append(editor)

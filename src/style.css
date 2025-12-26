@@ -96,6 +96,26 @@ body {
   text-overflow: clip;
 }
 
+.gutterValue-copyable {
+  display: inline-block;
+  cursor: pointer;
+  padding-inline: 8px;
+  padding-block: 2px;
+  border-radius: 8px;
+}
+
+.gutterValue-copyable:hover {
+  background: color-mix(in srgb, var(--app-text-fg) 10%, transparent);
+}
+
+.gutterValue-copyable:active {
+  background: color-mix(in srgb, var(--app-text-fg) 18%, transparent);
+}
+
+.gutterValue-copied {
+  background: color-mix(in srgb, var(--solarized-green) 18%, transparent);
+}
+
 .mirror,
 .input {
   position: absolute;

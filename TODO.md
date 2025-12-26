@@ -2,11 +2,6 @@
 
 ## Next (language + output)
 
-- Result formatting
-  - Add thousands separators for large numbers.
-  - Dollars display: always show 2 decimals (display-only rounding; keep full precision in evaluation).
-- Copy to clipboard
-  - Hover gutter result and click-to-copy.
 - Use vitest browser for createEditor tests, with real browser APIs
 - Add independent syntax color for assignment expression variables. E.g. `foo = bar + 1` - `foo` should get a unique color
 - Support `// comments` like this, both line and in-line
