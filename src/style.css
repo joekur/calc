@@ -29,7 +29,7 @@
   --solarized-green: #859900;
 
   /* App theme variables (map to palette above) */
-  --app-page-bg: var(--solarized-base03);
+  --app-page-bg: #02222a;
   --app-surface-bg: var(--solarized-base03);
   --app-text-fg: var(--solarized-base0);
   --app-border: color-mix(in srgb, var(--solarized-base0) 25%, transparent);
