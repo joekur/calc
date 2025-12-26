@@ -12,6 +12,10 @@
   --app-border: #2b3440;
   --app-caret: #e6edf3;
   --syntax-comment-fg: #8b949e;
+  --syntax-number-fg: #2aa198;
+  --syntax-variable-fg: #268bd2;
+  --syntax-operator-fg: #b58900;
+  --syntax-paren-fg: #93a1a1;
 }
 
 body {
@@ -102,6 +106,22 @@ body {
 .tok-comment {
   color: var(--syntax-comment-fg);
   font-style: italic;
+}
+
+.tok-number {
+  color: var(--syntax-number-fg, var(--app-text-fg));
+}
+
+.tok-variable {
+  color: var(--syntax-variable-fg, var(--app-text-fg));
+}
+
+.tok-operator {
+  color: var(--syntax-operator-fg, var(--app-text-fg));
+}
+
+.tok-paren {
+  color: var(--syntax-paren-fg, var(--app-text-fg));
 }
 
 .tok-error {

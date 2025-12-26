@@ -93,6 +93,30 @@ function findCommentTokenForeground(theme: VsCodeTheme): string | undefined {
   return undefined
 }
 
+function findTokenForeground(theme: VsCodeTheme, wantedScopes: string[]): string | undefined {
+  const tokenColors = theme.tokenColors ?? []
+
+  const matchesWantedScope = (scope: string, wanted: string) =>
+    scope === wanted || scope.startsWith(`${wanted}.`) || scope.includes(wanted)
+
+  for (const tokenColor of tokenColors) {
+    const scopes = tokenColor.scope
+      ? Array.isArray(tokenColor.scope)
+        ? tokenColor.scope
+        : [tokenColor.scope]
+      : []
+
+    if (!scopes.some((scope) => wantedScopes.some((wanted) => matchesWantedScope(scope, wanted)))) {
+      continue
+    }
+
+    const foreground = tokenColor.settings?.foreground
+    if (foreground) return foreground
+  }
+
+  return undefined
+}
+
 export function applyVsCodeTheme(themeJsonc: string, root: HTMLElement = document.documentElement) {
   const parsed = JSON.parse(stripJsonc(themeJsonc)) as VsCodeTheme
   const colors = parsed.colors ?? {}
@@ -113,6 +137,26 @@ export function applyVsCodeTheme(themeJsonc: string, root: HTMLElement = documen
   ])
   const caret = getFirstDefined([colors['editorCursor.foreground'], textFg])
   const commentFg = getFirstDefined([findCommentTokenForeground(parsed), textFg])
+  const numberFg = getFirstDefined([
+    findTokenForeground(parsed, ['constant.numeric', 'constant']),
+    colors['terminal.ansiCyan'],
+    textFg
+  ])
+  const variableFg = getFirstDefined([
+    findTokenForeground(parsed, ['variable']),
+    colors['terminal.ansiBlue'],
+    textFg
+  ])
+  const operatorFg = getFirstDefined([
+    findTokenForeground(parsed, ['keyword.operator', 'keyword']),
+    colors['terminal.ansiYellow'],
+    textFg
+  ])
+  const parenFg = getFirstDefined([
+    colors['editorBracketHighlight.foreground3'],
+    colors['terminal.ansiBrightBlue'],
+    textFg
+  ])
   const gutterFg = getFirstDefined([colors['editorLineNumber.activeForeground'], textFg])
   const gutterErrorFg = getFirstDefined([colors['errorForeground'], textFg])
 
@@ -122,6 +166,10 @@ export function applyVsCodeTheme(themeJsonc: string, root: HTMLElement = documen
   if (border) root.style.setProperty('--app-border', border)
   if (caret) root.style.setProperty('--app-caret', caret)
   if (commentFg) root.style.setProperty('--syntax-comment-fg', commentFg)
+  if (numberFg) root.style.setProperty('--syntax-number-fg', numberFg)
+  if (variableFg) root.style.setProperty('--syntax-variable-fg', variableFg)
+  if (operatorFg) root.style.setProperty('--syntax-operator-fg', operatorFg)
+  if (parenFg) root.style.setProperty('--syntax-paren-fg', parenFg)
   if (gutterFg) root.style.setProperty('--gutter-fg', gutterFg)
   if (gutterErrorFg) root.style.setProperty('--gutter-error-fg', gutterErrorFg)
 }

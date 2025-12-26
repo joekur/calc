@@ -1,4 +1,5 @@
 import { formatValue } from '../lang/expr'
+import { tokenizeForHighlight } from '../lang/highlight'
 import { evaluateLine } from '../lang/program'
 import { parseDocument } from '../lang/parse'
 
@@ -37,12 +38,31 @@ function renderMirror(
 
     let hasAnyText = false
     for (const node of line.nodes) {
-      const span = document.createElement('span')
-      if (node.type === 'comment') span.className = 'tok-comment'
-      if (node.type === 'code' && computations[index]?.showError) span.className = 'tok-error'
-      if (node.text !== '') hasAnyText = true
-      span.textContent = node.text
-      lineEl.append(span)
+      if (node.type === 'comment') {
+        const span = document.createElement('span')
+        span.className = 'tok-comment'
+        if (node.text !== '') hasAnyText = true
+        span.textContent = node.text
+        lineEl.append(span)
+        continue
+      }
+
+      const codeSpan = document.createElement('span')
+      codeSpan.className = 'tok-code'
+      if (computations[index]?.showError) codeSpan.classList.add('tok-error')
+
+      for (const token of tokenizeForHighlight(node.text)) {
+        const tokenEl = document.createElement('span')
+        if (token.type === 'ident') tokenEl.className = 'tok-variable'
+        if (token.type === 'number') tokenEl.className = 'tok-number'
+        if (token.type === 'operator') tokenEl.className = 'tok-operator'
+        if (token.type === 'paren') tokenEl.className = 'tok-paren'
+        tokenEl.textContent = token.text
+        if (token.text !== '') hasAnyText = true
+        codeSpan.append(tokenEl)
+      }
+
+      lineEl.append(codeSpan)
     }
 
     if (!hasAnyText) lineEl.textContent = '\u200b'

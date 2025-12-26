@@ -56,6 +56,24 @@ test('highlights inline # comments', () => {
   expect(mirror.textContent).toContain('foo = 2 + 2')
 })
 
+test('highlights variables and operators', () => {
+  const editor = createEditor()
+  document.body.append(editor)
+
+  const input = editor.querySelector<HTMLTextAreaElement>('textarea.input')
+  const mirror = editor.querySelector<HTMLDivElement>('.mirror')
+  expect(input).not.toBeNull()
+  expect(mirror).not.toBeNull()
+  if (!input || !mirror) return
+
+  input.value = 'salary = (43000 + 2) * 0.3'
+  fireEvent.input(input)
+
+  expect(mirror.querySelector('.tok-variable')).not.toBeNull()
+  expect(mirror.querySelector('.tok-operator')).not.toBeNull()
+  expect(mirror.querySelector('.tok-paren')).not.toBeNull()
+})
+
 test('renders evaluation results in the gutter', () => {
   const editor = createEditor()
   document.body.append(editor)
