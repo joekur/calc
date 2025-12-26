@@ -8,24 +8,33 @@ type CreateEditorOptions = {
 function renderMirror(mirror: HTMLElement, value: string) {
   mirror.replaceChildren();
 
+  if (value === "") {
+    mirror.textContent = "\u200b";
+    return;
+  }
+
+  const endsWithNewline = value.endsWith("\n");
+
   const fragment = document.createDocumentFragment();
   const documentAst = parseDocument(value);
 
   for (let index = 0; index < documentAst.lines.length; index++) {
     const line = documentAst.lines[index];
 
-    const span = document.createElement("span");
-    if (line.type === "comment") span.className = "tok-comment";
-    span.textContent = line.raw;
+    for (const node of line.nodes) {
+      const span = document.createElement("span");
+      if (node.type === "comment") span.className = "tok-comment";
+      span.textContent = node.text;
+      fragment.append(span);
+    }
 
-    fragment.append(span);
     if (index < documentAst.lines.length - 1) {
       fragment.append(document.createTextNode("\n"));
     }
   }
 
   // Preserve final newline height / caret behavior.
-  fragment.append(document.createTextNode("\u200b"));
+  if (endsWithNewline) fragment.append(document.createTextNode("\u200b"));
   mirror.append(fragment);
 }
 

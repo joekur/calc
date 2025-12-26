@@ -36,3 +36,22 @@ test('highlights full-line # comments', () => {
   expect(comment).not.toBeNull()
   expect(comment).toHaveTextContent('# comment')
 })
+
+test('highlights inline # comments', () => {
+  const editor = createEditor()
+  document.body.append(editor)
+
+  const input = editor.querySelector<HTMLTextAreaElement>('textarea.input')
+  const mirror = editor.querySelector<HTMLDivElement>('.mirror')
+  expect(input).not.toBeNull()
+  expect(mirror).not.toBeNull()
+  if (!input || !mirror) return
+
+  input.value = 'foo = 2 + 2 # this is also a comment'
+  fireEvent.input(input)
+
+  const comment = mirror.querySelector('.tok-comment')
+  expect(comment).not.toBeNull()
+  expect(comment).toHaveTextContent('# this is also a comment')
+  expect(mirror.textContent).toContain('foo = 2 + 2')
+})
