@@ -44,6 +44,10 @@
 
   --gutter-fg: var(--solarized-green);
   --gutter-error-fg: var(--solarized-red);
+
+  --tooltip-bg: var(--solarized-base02);
+  --tooltip-border: color-mix(in srgb, var(--solarized-base0) 25%, transparent);
+  --tooltip-fg: var(--solarized-base1);
 }
 
 body {
@@ -168,10 +172,10 @@ body {
   z-index: 10;
   max-width: min(560px, calc(100% - 24px));
   padding: 10px 12px;
-  border: 1px solid color-mix(in srgb, var(--app-text-fg) 18%, transparent);
+  border: 1px solid var(--tooltip-border);
   border-radius: 8px;
-  background: color-mix(in srgb, var(--app-surface-bg) 92%, black);
-  color: var(--app-text-fg);
+  background: var(--tooltip-bg);
+  color: var(--tooltip-fg);
   font-size: 14px;
   line-height: 1.3;
   white-space: pre-wrap;
