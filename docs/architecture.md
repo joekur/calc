@@ -105,7 +105,6 @@ We are building a web-based calculator similar to Numi, supporting multiple line
 - Start with **textarea + mirror** for simplicity and correctness.
 - Keep **text buffer and parser independent** from DOM layer.
 - Potential future upgrades:
-
   - Swap mirror for Monaco for advanced features (autocomplete, multiple cursors)
   - Support more advanced math expressions (fractions, matrices)
   - Add persistent variables, history, and units

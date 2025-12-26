@@ -1,76 +1,231 @@
-import { parseDocument } from "../lang/parse";
+import { evaluateExpression, formatValue } from '../lang/expr'
+import { parseDocument } from '../lang/parse'
 
 type CreateEditorOptions = {
-  initialValue?: string;
-  autofocus?: boolean;
-};
+  initialValue?: string
+  autofocus?: boolean
+}
 
-function renderMirror(mirror: HTMLElement, value: string) {
-  mirror.replaceChildren();
+type LineComputation = {
+  code: string
+  displayValue: string
+  hasError: boolean
+  showError: boolean
+}
 
-  if (value === "") {
-    mirror.textContent = "\u200b";
-    return;
-  }
+function getLineCode(line: ReturnType<typeof parseDocument>['lines'][number]): string {
+  return line.nodes
+    .filter((node) => node.type === 'code')
+    .map((node) => node.text)
+    .join('')
+}
 
-  const endsWithNewline = value.endsWith("\n");
+function renderMirror(
+  mirror: HTMLElement,
+  documentAst: ReturnType<typeof parseDocument>,
+  computations: LineComputation[]
+) {
+  mirror.replaceChildren()
 
-  const fragment = document.createDocumentFragment();
-  const documentAst = parseDocument(value);
+  const fragment = document.createDocumentFragment()
 
   for (let index = 0; index < documentAst.lines.length; index++) {
-    const line = documentAst.lines[index];
+    const line = documentAst.lines[index]
+    const lineEl = document.createElement('div')
+    lineEl.className = 'mirrorLine'
 
+    let hasAnyText = false
     for (const node of line.nodes) {
-      const span = document.createElement("span");
-      if (node.type === "comment") span.className = "tok-comment";
-      span.textContent = node.text;
-      fragment.append(span);
+      const span = document.createElement('span')
+      if (node.type === 'comment') span.className = 'tok-comment'
+      if (node.type === 'code' && computations[index]?.showError) span.className = 'tok-error'
+      if (node.text !== '') hasAnyText = true
+      span.textContent = node.text
+      lineEl.append(span)
     }
 
-    if (index < documentAst.lines.length - 1) {
-      fragment.append(document.createTextNode("\n"));
-    }
+    if (!hasAnyText) lineEl.textContent = '\u200b'
+    fragment.append(lineEl)
   }
 
-  // Preserve final newline height / caret behavior.
-  if (endsWithNewline) fragment.append(document.createTextNode("\u200b"));
-  mirror.append(fragment);
+  mirror.append(fragment)
+}
+
+function renderGutter(gutter: HTMLElement, computations: LineComputation[]) {
+  gutter.replaceChildren()
+
+  const fragment = document.createDocumentFragment()
+  for (const computation of computations) {
+    const lineEl = document.createElement('div')
+    lineEl.className = 'gutterLine'
+    lineEl.textContent = computation.displayValue === '' ? '\u200b' : computation.displayValue
+    fragment.append(lineEl)
+  }
+
+  gutter.append(fragment)
+}
+
+function syncGutterLineHeights(mirror: HTMLElement, gutter: HTMLElement) {
+  if (!mirror.isConnected) return
+
+  const mirrorLines = mirror.querySelectorAll<HTMLElement>('.mirrorLine')
+  const gutterLines = gutter.querySelectorAll<HTMLElement>('.gutterLine')
+  const count = Math.min(mirrorLines.length, gutterLines.length)
+
+  for (let index = 0; index < count; index++) {
+    const height = mirrorLines[index].offsetHeight
+    if (height > 0) gutterLines[index].style.minHeight = `${height}px`
+  }
 }
 
 export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
-  const editor = document.createElement("div");
-  editor.className = "editor";
+  const editor = document.createElement('div')
+  editor.className = 'editor'
 
-  const mirror = document.createElement("div");
-  mirror.className = "mirror";
-  mirror.setAttribute("aria-hidden", "true");
+  const surface = document.createElement('div')
+  surface.className = 'surface'
 
-  const input = document.createElement("textarea");
-  input.className = "input";
-  input.spellcheck = false;
-  input.autocapitalize = "off";
-  input.autocomplete = "off";
-  input.wrap = "off";
-  input.value = options.initialValue ?? "";
-  input.setAttribute("aria-label", "Editor");
+  const mirror = document.createElement('div')
+  mirror.className = 'mirror'
+  mirror.setAttribute('aria-hidden', 'true')
 
-  const sync = () => {
-    renderMirror(mirror, input.value);
-  };
+  const input = document.createElement('textarea')
+  input.className = 'input'
+  input.spellcheck = false
+  input.autocapitalize = 'off'
+  input.autocomplete = 'off'
+  input.wrap = 'soft'
+  input.value = options.initialValue ?? ''
+  input.setAttribute('aria-label', 'Editor')
 
-  input.addEventListener("input", sync);
-  input.addEventListener("scroll", () => {
-    mirror.scrollTop = input.scrollTop;
-    mirror.scrollLeft = input.scrollLeft;
-  });
+  const gutter = document.createElement('div')
+  gutter.className = 'gutter'
+  gutter.setAttribute('aria-hidden', 'true')
 
-  sync();
-  editor.append(mirror, input);
+  let lastValidValues: Array<number | null> = []
+  let committedLineIndices = new Set<number>()
+  let activeLineIndex = 0
+  let isSyncingScroll = false
 
-  if (options.autofocus) {
-    queueMicrotask(() => input.focus());
+  const getCaretLineIndex = (): number => {
+    const caret = input.selectionStart ?? 0
+    let lineIndex = 0
+    for (let index = 0; index < caret && index < input.value.length; index++) {
+      if (input.value[index] === '\n') lineIndex++
+    }
+    return lineIndex
   }
 
-  return editor;
+  const updateActiveLineIndex = () => {
+    const next = getCaretLineIndex()
+    if (next !== activeLineIndex) {
+      committedLineIndices.add(activeLineIndex)
+      activeLineIndex = next
+    }
+  }
+
+  const commitActiveLine = () => {
+    committedLineIndices.add(activeLineIndex)
+  }
+
+  const isMaybeMathExpression = (code: string): boolean => {
+    if (!/[0-9]/.test(code)) return false
+    return /^[0-9\s+\-*/().]+$/.test(code)
+  }
+
+  const sync = () => {
+    const documentAst = parseDocument(input.value)
+
+    if (lastValidValues.length !== documentAst.lines.length) {
+      lastValidValues = Array.from({ length: documentAst.lines.length }, (_, index) =>
+        index < lastValidValues.length ? lastValidValues[index] : null
+      )
+    }
+
+    committedLineIndices = new Set(
+      Array.from(committedLineIndices).filter(
+        (index) => index >= 0 && index < documentAst.lines.length
+      )
+    )
+    activeLineIndex = Math.max(0, Math.min(activeLineIndex, documentAst.lines.length - 1))
+
+    const computations: LineComputation[] = documentAst.lines.map((line, index) => {
+      const code = getLineCode(line)
+
+      if (!isMaybeMathExpression(code)) {
+        lastValidValues[index] = null
+        return {
+          code,
+          displayValue: '',
+          hasError: false,
+          showError: false
+        }
+      }
+
+      const result = evaluateExpression(code)
+      if (result.kind === 'value') lastValidValues[index] = result.value
+      if (result.kind === 'empty') lastValidValues[index] = null
+
+      const displayValue =
+        lastValidValues[index] == null ? '' : formatValue(lastValidValues[index] as number)
+
+      const hasError = result.kind === 'error' && code.trim() !== ''
+      const showError = hasError && committedLineIndices.has(index) && index !== activeLineIndex
+
+      return { code, displayValue, hasError, showError }
+    })
+
+    renderMirror(mirror, documentAst, computations)
+    renderGutter(gutter, computations)
+    syncGutterLineHeights(mirror, gutter)
+  }
+
+  input.addEventListener('input', () => {
+    updateActiveLineIndex()
+    sync()
+  })
+
+  const handleCursorMove = () => {
+    const previous = activeLineIndex
+    updateActiveLineIndex()
+    if (previous !== activeLineIndex) sync()
+  }
+
+  input.addEventListener('keyup', handleCursorMove)
+  input.addEventListener('mouseup', handleCursorMove)
+  input.addEventListener('blur', () => {
+    commitActiveLine()
+    sync()
+  })
+  input.addEventListener('scroll', () => {
+    if (isSyncingScroll) return
+    isSyncingScroll = true
+    mirror.scrollTop = input.scrollTop
+    gutter.scrollTop = input.scrollTop
+    isSyncingScroll = false
+  })
+
+  gutter.addEventListener('scroll', () => {
+    if (isSyncingScroll) return
+    isSyncingScroll = true
+    input.scrollTop = gutter.scrollTop
+    mirror.scrollTop = gutter.scrollTop
+    isSyncingScroll = false
+  })
+
+  surface.append(mirror, input)
+  editor.append(surface, gutter)
+  sync()
+
+  // Perform a best-effort pass once connected to the DOM.
+  requestAnimationFrame(() => {
+    if (!editor.isConnected) return
+    sync()
+  })
+
+  if (options.autofocus) {
+    queueMicrotask(() => input.focus())
+  }
+
+  return editor
 }

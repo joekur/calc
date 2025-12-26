@@ -1,8 +1,9 @@
 :root {
   color-scheme: dark;
   font-size: 24px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-    "Liberation Mono", "Courier New", monospace;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+    monospace;
   line-height: 1.4;
 
   --app-page-bg: #0b0f14;
@@ -21,6 +22,7 @@ body {
 }
 
 .editor {
+  display: flex;
   position: relative;
   width: min(900px, 100%);
   min-height: 320px;
@@ -31,6 +33,39 @@ body {
   overflow: hidden;
 }
 
+.surface {
+  position: relative;
+  flex: 1;
+  min-height: 320px;
+}
+
+.gutter {
+  width: 160px;
+  border-left: 1px solid var(--app-border);
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+}
+
+.gutter::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.gutter {
+  padding: 16px;
+  line-height: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  text-align: right;
+  color: var(--gutter-fg, var(--app-text-fg));
+}
+
+.gutterLine {
+  white-space: inherit;
+}
+
 .mirror,
 .input {
   position: absolute;
@@ -39,9 +74,22 @@ body {
   font: inherit;
   line-height: inherit;
   tab-size: 2;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
   white-space: pre-wrap;
-  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  scrollbar-width: none;
+}
+
+.mirror::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.input::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 
 .mirror {
@@ -60,4 +108,15 @@ body {
 .tok-comment {
   color: var(--syntax-comment-fg);
   font-style: italic;
+}
+
+.tok-error {
+  text-decoration-line: underline;
+  text-decoration-style: wavy;
+  text-decoration-color: var(--gutter-error-fg, var(--app-text-fg));
+  text-decoration-thickness: 1px;
+}
+
+.gutter-error {
+  color: var(--gutter-error-fg, var(--app-text-fg));
 }

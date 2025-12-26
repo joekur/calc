@@ -55,3 +55,59 @@ test('highlights inline # comments', () => {
   expect(comment).toHaveTextContent('# this is also a comment')
   expect(mirror.textContent).toContain('foo = 2 + 2')
 })
+
+test('renders evaluation results in the gutter', () => {
+  const editor = createEditor()
+  document.body.append(editor)
+
+  const input = editor.querySelector<HTMLTextAreaElement>('textarea.input')
+  const gutter = editor.querySelector<HTMLDivElement>('.gutter')
+  expect(input).not.toBeNull()
+  expect(gutter).not.toBeNull()
+  if (!input || !gutter) return
+
+  input.value = '4 + 4 / 2\n# comment\n'
+  fireEvent.input(input)
+
+  expect(gutter.textContent).toContain('6')
+})
+
+test('keeps showing last valid value while typing errors', () => {
+  const editor = createEditor()
+  document.body.append(editor)
+
+  const input = editor.querySelector<HTMLTextAreaElement>('textarea.input')
+  const gutter = editor.querySelector<HTMLDivElement>('.gutter')
+  expect(input).not.toBeNull()
+  expect(gutter).not.toBeNull()
+  if (!input || !gutter) return
+
+  input.value = '1 + 1'
+  fireEvent.input(input)
+  expect(gutter.textContent).toContain('2')
+
+  input.value = '1 +'
+  fireEvent.input(input)
+  expect(gutter.textContent).toContain('2')
+})
+
+test('defers error underline until leaving the line', () => {
+  const editor = createEditor()
+  document.body.append(editor)
+
+  const input = editor.querySelector<HTMLTextAreaElement>('textarea.input')
+  expect(input).not.toBeNull()
+  if (!input) return
+
+  input.value = '1 +'
+  input.selectionStart = input.value.length
+  input.selectionEnd = input.value.length
+  fireEvent.input(input)
+  expect(editor.querySelector('.tok-error')).toBeNull()
+
+  input.value = '1 +\n'
+  input.selectionStart = input.value.length
+  input.selectionEnd = input.value.length
+  fireEvent.input(input)
+  expect(editor.querySelector('.tok-error')).not.toBeNull()
+})

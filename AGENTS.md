@@ -26,6 +26,8 @@ Keep a clear separation between:
 - `npm run build`: typecheck (`tsc -b`) and build production bundle.
 - `npm test`: run unit tests once (Vitest).
 - `npm run test:watch`: run tests in watch mode.
+- `npm run format`: format with Prettier.
+- `npm run format:check`: verify formatting in CI.
 
 ## Coding Style & Naming Conventions
 

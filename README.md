@@ -22,3 +22,8 @@ Run tests:
 npm test
 ```
 
+Format code (Prettier):
+
+```bash
+npm run format
+```

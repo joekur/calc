@@ -1,6 +1,4 @@
-export type InlineAstNode =
-  | { type: 'code'; text: string }
-  | { type: 'comment'; text: string }
+export type InlineAstNode = { type: 'code'; text: string } | { type: 'comment'; text: string }
 
 export type LineAst = {
   type: 'line'
