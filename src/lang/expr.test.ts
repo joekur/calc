@@ -51,6 +51,10 @@ test('formats large integers without rounding drift', () => {
   expect(formatValue({ amount: 100000000000, unit: 'none' })).toBe('1e11')
 })
 
+test('adds thousands separators for non-scientific integers', () => {
+  expect(formatValue({ amount: 12345678, unit: 'none' })).toBe('12,345,678')
+})
+
 test('formats very small values in scientific notation', () => {
   expect(formatValue({ amount: 0.0000000002, unit: 'none' })).toBe('2e-10')
 })

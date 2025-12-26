@@ -332,9 +332,15 @@ function formatAmount(value: number): string {
     return `${mantissa}e${exponent}`
   }
 
+  const addThousandsSeparators = (input: string): string => {
+    const [integer, fraction] = input.split('.')
+    const withCommas = integer.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+    return fraction == null ? withCommas : `${withCommas}.${fraction}`
+  }
+
   // Avoid scaling-based rounding (e.g. `value * 1e12`) which breaks for
   // larger magnitudes due to floating point precision.
-  if (Number.isSafeInteger(value)) return String(value)
+  if (Number.isSafeInteger(value)) return addThousandsSeparators(String(value))
 
   // `toPrecision` gives a stable, human-friendly representation and smooths out
   // common floating point noise (e.g. 0.30000000000000004 -> 0.3).
@@ -342,13 +348,32 @@ function formatAmount(value: number): string {
 
   // Trim trailing zeros for non-exponent form.
   if (!text.includes('e') && text.includes('.')) {
-    return text.replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1')
+    const trimmed = text.replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1')
+    return addThousandsSeparators(trimmed)
   }
 
-  return text
+  return addThousandsSeparators(text)
 }
 
 export function formatValue(value: Value): string {
-  const prefix = value.unit === 'usd' ? '$' : ''
-  return `${prefix}${formatAmount(value.amount)}`
+  if (value.unit !== 'usd') return formatAmount(value.amount)
+
+  if (!Number.isFinite(value.amount)) return `$${String(value.amount)}`
+
+  const sign = value.amount < 0 ? '-' : ''
+  const abs = Math.abs(value.amount)
+  const scientificThreshold = 1e9
+  const smallThreshold = 1e-9
+
+  if (abs >= scientificThreshold || abs < smallThreshold) {
+    const [mantissaRaw, expRaw] = abs.toExponential(2).split('e')
+    const exponent = Number.parseInt(expRaw, 10)
+    const mantissa = mantissaRaw.replace(/\.00$/, '')
+    return `${sign}$${mantissa}e${exponent}`
+  }
+
+  const [integer, fraction] = abs.toFixed(2).split('.')
+  const withCommas = integer.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+  if (fraction === '00') return `${sign}$${withCommas}`
+  return `${sign}$${withCommas}.${fraction}`
 }
