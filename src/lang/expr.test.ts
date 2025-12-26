@@ -2,12 +2,21 @@ import { expect, test } from 'vitest'
 import { evaluateExpression, formatValue } from './expr'
 
 test('evaluates basic precedence', () => {
-  expect(evaluateExpression('4 + 4 / 2')).toEqual({ kind: 'value', value: 6 })
-  expect(evaluateExpression('2 * 3 + 4')).toEqual({ kind: 'value', value: 10 })
+  expect(evaluateExpression('4 + 4 / 2')).toEqual({
+    kind: 'value',
+    value: { amount: 6, unit: 'none' }
+  })
+  expect(evaluateExpression('2 * 3 + 4')).toEqual({
+    kind: 'value',
+    value: { amount: 10, unit: 'none' }
+  })
 })
 
 test('supports unary minus', () => {
-  expect(evaluateExpression('-1 + 2')).toEqual({ kind: 'value', value: 1 })
+  expect(evaluateExpression('-1 + 2')).toEqual({
+    kind: 'value',
+    value: { amount: 1, unit: 'none' }
+  })
 })
 
 test('reports invalid input', () => {
@@ -16,17 +25,42 @@ test('reports invalid input', () => {
 })
 
 test('formats large integers without rounding drift', () => {
-  expect(formatValue(100000000000)).toBe('1e11')
+  expect(formatValue({ amount: 100000000000, unit: 'none' })).toBe('1e11')
 })
 
 test('formats very small values in scientific notation', () => {
-  expect(formatValue(0.0000000002)).toBe('2e-10')
+  expect(formatValue({ amount: 0.0000000002, unit: 'none' })).toBe('2e-10')
 })
 
 test('scientific notation uses at most 7 significant digits', () => {
-  const formatted = formatValue(1234567890123)
+  const formatted = formatValue({ amount: 1234567890123, unit: 'none' })
   expect(formatted).toBe('1.234568e12')
   const [mantissa] = formatted.split('e')
   const sigDigits = mantissa.replace('-', '').replace('.', '').length
   expect(sigDigits).toBeLessThanOrEqual(7)
+})
+
+test('supports $ literals and unit propagation', () => {
+  expect(evaluateExpression('$100')).toEqual({ kind: 'value', value: { amount: 100, unit: 'usd' } })
+  expect(evaluateExpression('$100 + $50')).toEqual({
+    kind: 'value',
+    value: { amount: 150, unit: 'usd' }
+  })
+  expect(evaluateExpression('$100 * 2')).toEqual({
+    kind: 'value',
+    value: { amount: 200, unit: 'usd' }
+  })
+  expect(evaluateExpression('2 * $100')).toEqual({
+    kind: 'value',
+    value: { amount: 200, unit: 'usd' }
+  })
+  expect(evaluateExpression('$100 / $2')).toEqual({
+    kind: 'value',
+    value: { amount: 50, unit: 'none' }
+  })
+  expect(formatValue({ amount: 200, unit: 'usd' })).toBe('$200')
+
+  expect(evaluateExpression('$1 + 2')).toEqual({ kind: 'value', value: { amount: 3, unit: 'usd' } })
+  expect(evaluateExpression('$1 * $2').kind).toBe('error')
+  expect(evaluateExpression('2 / $2').kind).toBe('error')
 })

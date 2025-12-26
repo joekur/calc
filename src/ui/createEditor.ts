@@ -1,3 +1,4 @@
+import type { Value } from '../lang/expr'
 import { formatValue } from '../lang/expr'
 import { tokenizeForHighlight } from '../lang/highlight'
 import { evaluateLine } from '../lang/program'
@@ -123,8 +124,8 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
   gutter.className = 'gutter'
   gutter.setAttribute('aria-hidden', 'true')
 
-  let lastValidValues: Array<number | null> = []
-  let lastValidAssignments: Array<{ name: string; value: number } | null> = []
+  let lastValidValues: Array<Value | null> = []
+  let lastValidAssignments: Array<{ name: string; value: Value } | null> = []
   let committedLineIndices = new Set<number>()
   let activeLineIndex = 0
   let isSyncingScroll = false
@@ -172,7 +173,7 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
     )
     activeLineIndex = Math.max(0, Math.min(activeLineIndex, documentAst.lines.length - 1))
 
-    const env = new Map<string, number>()
+    const env = new Map<string, Value>()
 
     const computations: LineComputation[] = documentAst.lines.map((line, index) => {
       const code = getLineCode(line)
@@ -215,7 +216,7 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
       }
 
       const displayValue =
-        lastValidValues[index] == null ? '' : formatValue(lastValidValues[index] as number)
+        lastValidValues[index] == null ? '' : formatValue(lastValidValues[index] as Value)
 
       const hasError = resultKind === 'error' && code.trim() !== ''
       const showError = hasError && committedLineIndices.has(index) && index !== activeLineIndex

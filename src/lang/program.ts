@@ -1,4 +1,4 @@
-import type { EvalResult } from './expr'
+import type { EvalResult, Value } from './expr'
 import { evaluateExpression } from './expr'
 import { parseStatement } from './statement'
 
@@ -8,7 +8,7 @@ export type LineEvaluation =
   | { kind: 'assign'; name: string; result: EvalResult }
   | { kind: 'error'; error: string }
 
-export function evaluateLine(code: string, env: Map<string, number>): LineEvaluation {
+export function evaluateLine(code: string, env: Map<string, Value>): LineEvaluation {
   const parsed = parseStatement(code)
 
   if (parsed.kind === 'empty') return { kind: 'empty' }

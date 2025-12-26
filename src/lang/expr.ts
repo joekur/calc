@@ -1,20 +1,35 @@
 type Token =
-  | { type: 'number'; value: number; raw: string }
+  | { type: 'number'; value: Value; raw: string }
   | { type: 'ident'; name: string }
   | { type: 'op'; value: '+' | '-' | '*' | '/' }
   | { type: 'lparen' }
   | { type: 'rparen' }
 
 type Expr =
-  | { type: 'number'; value: number }
+  | { type: 'number'; value: Value }
   | { type: 'ident'; name: string }
   | { type: 'unary'; op: '+' | '-'; expr: Expr }
   | { type: 'binary'; op: '+' | '-' | '*' | '/'; left: Expr; right: Expr }
 
+export type Unit = 'none' | 'usd'
+
+export type Value = {
+  amount: number
+  unit: Unit
+}
+
 export type EvalResult =
   | { kind: 'empty' }
-  | { kind: 'value'; value: number }
+  | { kind: 'value'; value: Value }
   | { kind: 'error'; error: string }
+
+function numberValue(amount: number): Value {
+  return { amount, unit: 'none' }
+}
+
+function usdValue(amount: number): Value {
+  return { amount, unit: 'usd' }
+}
 
 function tokenize(input: string): Token[] | EvalResult {
   const tokens: Token[] = []
@@ -44,6 +59,28 @@ function tokenize(input: string): Token[] | EvalResult {
       continue
     }
 
+    if (char === '$') {
+      const start = index
+      index++
+      while (index < input.length && (input[index] === ' ' || input[index] === '\t')) index++
+
+      if (index >= input.length || !/[0-9.]/.test(input[index])) {
+        return { kind: 'error', error: 'Expected number after $' }
+      }
+
+      let end = index + 1
+      while (end < input.length && /[0-9.]/.test(input[end])) end++
+      const rawNumber = input.slice(index, end)
+      const value = Number(rawNumber)
+      if (!Number.isFinite(value)) {
+        return { kind: 'error', error: `Invalid number: ${rawNumber}` }
+      }
+
+      tokens.push({ type: 'number', raw: input.slice(start, end), value: usdValue(value) })
+      index = end
+      continue
+    }
+
     if (/[A-Za-z_]/.test(char)) {
       let end = index + 1
       while (end < input.length && /[A-Za-z0-9_]/.test(input[end])) end++
@@ -60,7 +97,7 @@ function tokenize(input: string): Token[] | EvalResult {
       if (!Number.isFinite(value)) {
         return { kind: 'error', error: `Invalid number: ${raw}` }
       }
-      tokens.push({ type: 'number', raw, value })
+      tokens.push({ type: 'number', raw, value: numberValue(value) })
       index = end
       continue
     }
@@ -162,7 +199,54 @@ function parse(tokens: Token[]): Expr | EvalResult {
   return expr
 }
 
-function evalExpr(expr: Expr, env: Map<string, number>): EvalResult {
+function evalUnary(op: '+' | '-', value: Value): Value {
+  return { amount: op === '-' ? -value.amount : value.amount, unit: value.unit }
+}
+
+function evalBinary(op: '+' | '-' | '*' | '/', left: Value, right: Value): EvalResult {
+  if (op === '+' || op === '-') {
+    // Promote unitless numbers to the other operand's unit.
+    if (left.unit !== right.unit) {
+      if (left.unit === 'none') left = { unit: right.unit, amount: left.amount }
+      else if (right.unit === 'none') right = { unit: left.unit, amount: right.amount }
+      else return { kind: 'error', error: 'Unit mismatch' }
+    }
+
+    return {
+      kind: 'value',
+      value: {
+        unit: left.unit,
+        amount: op === '+' ? left.amount + right.amount : left.amount - right.amount
+      }
+    }
+  }
+
+  if (op === '*') {
+    if (left.unit !== 'none' && right.unit !== 'none') {
+      return { kind: 'error', error: 'Cannot multiply two unit values' }
+    }
+    const unit = left.unit === 'none' ? right.unit : left.unit
+    return { kind: 'value', value: { unit, amount: left.amount * right.amount } }
+  }
+
+  if (op === '/') {
+    if (right.amount === 0) return { kind: 'error', error: 'Division by zero' }
+
+    if (right.unit === 'none') {
+      return { kind: 'value', value: { unit: left.unit, amount: left.amount / right.amount } }
+    }
+
+    if (left.unit === right.unit) {
+      return { kind: 'value', value: { unit: 'none', amount: left.amount / right.amount } }
+    }
+
+    return { kind: 'error', error: 'Unit mismatch' }
+  }
+
+  return { kind: 'error', error: 'Unknown operator' }
+}
+
+function evalExpr(expr: Expr, env: Map<string, Value>): EvalResult {
   switch (expr.type) {
     case 'number':
       return { kind: 'value', value: expr.value }
@@ -174,7 +258,7 @@ function evalExpr(expr: Expr, env: Map<string, number>): EvalResult {
     case 'unary': {
       const inner = evalExpr(expr.expr, env)
       if (inner.kind !== 'value') return inner
-      return { kind: 'value', value: expr.op === '-' ? -inner.value : inner.value }
+      return { kind: 'value', value: evalUnary(expr.op, inner.value) }
     }
     case 'binary': {
       const left = evalExpr(expr.left, env)
@@ -182,21 +266,14 @@ function evalExpr(expr: Expr, env: Map<string, number>): EvalResult {
       const right = evalExpr(expr.right, env)
       if (right.kind !== 'value') return right
 
-      if (expr.op === '+') return { kind: 'value', value: left.value + right.value }
-      if (expr.op === '-') return { kind: 'value', value: left.value - right.value }
-      if (expr.op === '*') return { kind: 'value', value: left.value * right.value }
-      if (expr.op === '/') {
-        if (right.value === 0) return { kind: 'error', error: 'Division by zero' }
-        return { kind: 'value', value: left.value / right.value }
-      }
-      return { kind: 'error', error: 'Unknown operator' }
+      return evalBinary(expr.op, left.value, right.value)
     }
   }
 }
 
 export function evaluateExpression(
   source: string,
-  env: Map<string, number> = new Map()
+  env: Map<string, Value> = new Map()
 ): EvalResult {
   const trimmed = source.trim()
   if (trimmed === '') return { kind: 'empty' }
@@ -208,7 +285,7 @@ export function evaluateExpression(
   return evalExpr(astOrError, env)
 }
 
-export function formatValue(value: number): string {
+function formatAmount(value: number): string {
   if (!Number.isFinite(value)) return String(value)
 
   if (value === 0) return '0'
@@ -243,4 +320,9 @@ export function formatValue(value: number): string {
   }
 
   return text
+}
+
+export function formatValue(value: Value): string {
+  const prefix = value.unit === 'usd' ? '$' : ''
+  return `${prefix}${formatAmount(value.amount)}`
 }
