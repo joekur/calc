@@ -6,16 +6,44 @@
     monospace;
   line-height: 1.4;
 
-  --app-page-bg: #0b0f14;
-  --app-surface-bg: #0f1620;
-  --app-text-fg: #e6edf3;
-  --app-border: #2b3440;
-  --app-caret: #e6edf3;
-  --syntax-comment-fg: #8b949e;
-  --syntax-number-fg: #2aa198;
-  --syntax-variable-fg: #268bd2;
-  --syntax-operator-fg: #b58900;
-  --syntax-paren-fg: #93a1a1;
+  /*
+    Theme palette: Solarized (dark)
+    Use these to experiment with token colors without hunting hex codes.
+  */
+  --solarized-base03: #002b36;
+  --solarized-base02: #073642;
+  --solarized-base01: #586e75;
+  --solarized-base00: #657b83;
+  --solarized-base0: #839496;
+  --solarized-base1: #93a1a1;
+  --solarized-base2: #eee8d5;
+  --solarized-base3: #fdf6e3;
+
+  --solarized-yellow: #b58900;
+  --solarized-orange: #cb4b16;
+  --solarized-red: #dc322f;
+  --solarized-magenta: #d33682;
+  --solarized-violet: #6c71c4;
+  --solarized-blue: #268bd2;
+  --solarized-cyan: #2aa198;
+  --solarized-green: #859900;
+
+  /* App theme variables (map to palette above) */
+  --app-page-bg: var(--solarized-base03);
+  --app-surface-bg: var(--solarized-base03);
+  --app-text-fg: var(--solarized-base0);
+  --app-border: color-mix(in srgb, var(--solarized-base0) 25%, transparent);
+  --app-caret: var(--solarized-red);
+
+  /* Syntax theme variables (tweak these freely) */
+  --syntax-comment-fg: var(--solarized-base01);
+  --syntax-number-fg: var(--solarized-cyan);
+  --syntax-variable-fg: var(--solarized-blue);
+  --syntax-operator-fg: var(--solarized-yellow);
+  --syntax-paren-fg: var(--solarized-base1);
+
+  --gutter-fg: var(--solarized-base1);
+  --gutter-error-fg: var(--solarized-base3);
 }
 
 body {
