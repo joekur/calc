@@ -269,14 +269,6 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
     tooltipShowTimer = null
     pendingTooltip = null
 
-    const isPinnedToActiveLine =
-      tooltipLineIndex != null &&
-      tooltip.style.display !== 'none' &&
-      hasFocus &&
-      tooltipLineIndex === activeLineIndex
-
-    if (isPinnedToActiveLine) return
-
     if (tooltip.style.display === 'none') return
     if (tooltipHideTimer != null) return
 
@@ -295,20 +287,11 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
   }
 
   const updateTooltipForMouse = (event: MouseEvent) => {
-    const isPinnedToActiveLine =
-      tooltipLineIndex != null &&
-      tooltip.style.display !== 'none' &&
-      hasFocus &&
-      tooltipLineIndex === activeLineIndex
-
     const lineIndex = getLineIndexAtClientY(event.clientY)
     if (lineIndex == null) {
-      if (isPinnedToActiveLine) return
       scheduleTooltipHide()
       return
     }
-
-    if (isPinnedToActiveLine && lineIndex !== tooltipLineIndex) return
 
     const computation = latestComputations[lineIndex]
     const message = computation?.errorMessage
@@ -370,6 +353,8 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
     const computations: LineComputation[] = documentAst.lines.map((line, index) => {
       const code = getLineCode(line)
       const hasEquals = code.includes('=')
+      const shouldApplyAssignmentFallback =
+        hasFocus && index === activeLineIndex && !revealedErrorLineIndices.has(index)
 
       if (!hasEquals) lastValidAssignments[index] = null
 
@@ -407,13 +392,15 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
 
         if (evaluation.result.kind === 'error') {
           const fallback = lastValidAssignments[index]
-          if (fallback && hasEquals) env.set(fallback.name, fallback.value)
+          if (shouldApplyAssignmentFallback && fallback && hasEquals)
+            env.set(fallback.name, fallback.value)
         }
       }
 
       if (evaluation.kind === 'error') {
         const fallback = lastValidAssignments[index]
-        if (fallback && hasEquals) env.set(fallback.name, fallback.value)
+        if (shouldApplyAssignmentFallback && fallback && hasEquals)
+          env.set(fallback.name, fallback.value)
       }
 
       const displayValue =
@@ -478,8 +465,6 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
     if (previous !== activeLineIndex) {
       resetActiveLineIdleTimer()
       scheduleActiveLineIdleErrorReveal()
-
-      if (tooltipLineIndex === previous) scheduleTooltipHide()
       sync()
     }
   }

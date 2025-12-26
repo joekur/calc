@@ -1,21 +1,16 @@
 # TODO
 
-## Now (UX correctness)
-
-- Error tooltips: show an error message on hover for errored lines.
-- Paste error-state bug: after paste, ensure all lines compute error state immediately.
-  - Rule: the active (focused) line should not _show_ the error underline, but the error state should still be computed and available for tooltips/gutter behavior.
-
 ## Next (language + output)
 
+- Exponent operator: support `^` with correct precedence.
+- Copy to clipboard
+  - Hover gutter result and click-to-copy.
+- Use vitest browser for createEditor tests, with real browser APIs
 - Add independent syntax color for assignment expression variables. E.g. `foo = bar + 1` - `foo` should get a unique color
 - Support `// comments` like this, both line and in-line
 - Result formatting
   - Add thousands separators for large numbers.
   - Dollars display: always show 2 decimals (display-only rounding; keep full precision in evaluation).
-- Copy to clipboard
-  - Hover gutter result and click-to-copy.
-- Exponent operator: support `^` with correct precedence.
 - Percent unit `%`
   - Distinct percent behavior.
   - Examples:
