@@ -43,27 +43,21 @@ body {
   width: 160px;
   border-left: 1px solid var(--app-border);
   overflow-y: auto;
-  overflow-x: hidden;
-  scrollbar-width: none;
-}
-
-.gutter::-webkit-scrollbar {
-  width: 0;
-  height: 0;
+  overflow-x: auto;
 }
 
 .gutter {
   padding: 16px;
   line-height: inherit;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  word-break: break-word;
+  white-space: pre;
   text-align: right;
   color: var(--gutter-fg, var(--app-text-fg));
 }
 
 .gutterLine {
-  white-space: inherit;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
 }
 
 .mirror,

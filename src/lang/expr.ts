@@ -187,7 +187,38 @@ export function evaluateExpression(source: string): EvalResult {
 }
 
 export function formatValue(value: number): string {
-  // Light rounding to avoid common floating point noise.
-  const rounded = Math.round(value * 1e12) / 1e12
-  return String(rounded)
+  if (!Number.isFinite(value)) return String(value)
+
+  if (value === 0) return '0'
+
+  const abs = Math.abs(value)
+  const scientificThreshold = 1e9
+  const smallThreshold = 1e-9
+
+  if (abs >= scientificThreshold || abs < smallThreshold) {
+    const maxSignificantDigits = 7
+
+    // Keep output short (no `+` in exponent, trim mantissa zeros).
+    // `toExponential(n)` uses 1 digit before the dot and `n` after it, so this
+    // caps the mantissa to at most `1 + n` significant digits.
+    const [mantissaRaw, expRaw] = value.toExponential(maxSignificantDigits - 1).split('e')
+    const exponent = Number.parseInt(expRaw, 10)
+    const mantissa = mantissaRaw.replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1')
+    return `${mantissa}e${exponent}`
+  }
+
+  // Avoid scaling-based rounding (e.g. `value * 1e12`) which breaks for
+  // larger magnitudes due to floating point precision.
+  if (Number.isSafeInteger(value)) return String(value)
+
+  // `toPrecision` gives a stable, human-friendly representation and smooths out
+  // common floating point noise (e.g. 0.30000000000000004 -> 0.3).
+  const text = value.toPrecision(15)
+
+  // Trim trailing zeros for non-exponent form.
+  if (!text.includes('e') && text.includes('.')) {
+    return text.replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1')
+  }
+
+  return text
 }
