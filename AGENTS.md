@@ -7,21 +7,25 @@ This repository is an early-stage web calculator project inspired by Numi. The c
 ## Project Structure & Module Organization
 
 - `docs/`: design/architecture notes and decisions.
-- Code is not yet committed; when adding implementation, keep a clear separation between:
-  - editor/input surface (DOM/textarea)
-  - parsing/tokenization (pure functions)
-  - evaluation/runtime environment (pure + deterministic)
-  - rendering (projection of state)
+- `src/`: app source.
+  - `src/ui/`: editor UI (textarea + mirror rendering).
+  - `src/themes/`: theme assets and theme-to-CSS-variable mapping.
+  - `src/test/`: test setup.
+
+Keep a clear separation between:
+
+- editor/input surface (DOM/textarea)
+- parsing/tokenization (pure functions)
+- evaluation/runtime environment (pure + deterministic)
+- rendering (projection of state)
 
 ## Build, Test, and Development Commands
 
-No build or test runner is committed yet. When introducing one, add a short list of canonical commands here and in a `README.md`.
-
-Recommended minimum:
-
-- `npm run dev`: start local dev server.
-- `npm test`: run unit tests.
-- `npm run lint` / `npm run format`: enforce style.
+- `npm install`: install dependencies.
+- `npm run dev`: start Vite dev server.
+- `npm run build`: typecheck (`tsc -b`) and build production bundle.
+- `npm test`: run unit tests once (Vitest).
+- `npm run test:watch`: run tests in watch mode.
 
 ## Coding Style & Naming Conventions
 

@@ -1,24 +1,32 @@
 :root {
-  color-scheme: light;
+  color-scheme: dark;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
     "Courier New", monospace;
   line-height: 1.4;
+
+  --app-page-bg: #0b0f14;
+  --app-surface-bg: #0f1620;
+  --app-text-fg: #e6edf3;
+  --app-border: #2b3440;
+  --app-caret: #e6edf3;
+  --syntax-comment-fg: #8b949e;
 }
 
 body {
   margin: 0;
   padding: 24px;
-  background: #0b0f14;
-  color: #e6edf3;
+  background: var(--app-page-bg);
+  color: var(--app-text-fg);
 }
 
 .editor {
   position: relative;
   width: min(900px, 100%);
   min-height: 320px;
-  border: 1px solid #2b3440;
+  border: 1px solid var(--app-border);
   border-radius: 10px;
-  background: #0f1620;
+  background: var(--app-surface-bg);
+  color: var(--app-text-fg);
   overflow: hidden;
 }
 
@@ -45,6 +53,10 @@ body {
   outline: none;
   resize: none;
   color: transparent;
-  caret-color: #e6edf3;
+  caret-color: var(--app-caret);
 }
 
+.tok-comment {
+  color: var(--syntax-comment-fg);
+  font-style: italic;
+}

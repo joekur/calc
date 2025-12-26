@@ -1,12 +1,32 @@
+import { parseDocument } from "../lang/parse";
+
 type CreateEditorOptions = {
   initialValue?: string;
   autofocus?: boolean;
 };
 
-function toMirrorText(value: string): string {
-  if (value === "") return "\u200b";
-  if (value.endsWith("\n")) return `${value}\u200b`;
-  return value;
+function renderMirror(mirror: HTMLElement, value: string) {
+  mirror.replaceChildren();
+
+  const fragment = document.createDocumentFragment();
+  const documentAst = parseDocument(value);
+
+  for (let index = 0; index < documentAst.lines.length; index++) {
+    const line = documentAst.lines[index];
+
+    const span = document.createElement("span");
+    if (line.type === "comment") span.className = "tok-comment";
+    span.textContent = line.raw;
+
+    fragment.append(span);
+    if (index < documentAst.lines.length - 1) {
+      fragment.append(document.createTextNode("\n"));
+    }
+  }
+
+  // Preserve final newline height / caret behavior.
+  fragment.append(document.createTextNode("\u200b"));
+  mirror.append(fragment);
 }
 
 export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
@@ -27,7 +47,7 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
   input.setAttribute("aria-label", "Editor");
 
   const sync = () => {
-    mirror.textContent = toMirrorText(input.value);
+    renderMirror(mirror, input.value);
   };
 
   input.addEventListener("input", sync);
