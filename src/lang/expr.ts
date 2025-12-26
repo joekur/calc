@@ -1,11 +1,13 @@
 type Token =
   | { type: 'number'; value: number; raw: string }
+  | { type: 'ident'; name: string }
   | { type: 'op'; value: '+' | '-' | '*' | '/' }
   | { type: 'lparen' }
   | { type: 'rparen' }
 
 type Expr =
   | { type: 'number'; value: number }
+  | { type: 'ident'; name: string }
   | { type: 'unary'; op: '+' | '-'; expr: Expr }
   | { type: 'binary'; op: '+' | '-' | '*' | '/'; left: Expr; right: Expr }
 
@@ -39,6 +41,14 @@ function tokenize(input: string): Token[] | EvalResult {
     if (char === '+' || char === '-' || char === '*' || char === '/') {
       tokens.push({ type: 'op', value: char })
       index++
+      continue
+    }
+
+    if (/[A-Za-z_]/.test(char)) {
+      let end = index + 1
+      while (end < input.length && /[A-Za-z0-9_]/.test(input[end])) end++
+      tokens.push({ type: 'ident', name: input.slice(index, end) })
+      index = end
       continue
     }
 
@@ -128,6 +138,10 @@ function parse(tokens: Token[]): Expr | EvalResult {
       consume()
       return { type: 'number', value: token.value }
     }
+    if (token.type === 'ident') {
+      consume()
+      return { type: 'ident', name: token.name }
+    }
     if (token.type === 'lparen') {
       consume()
       const expr = parseExpression()
@@ -148,19 +162,24 @@ function parse(tokens: Token[]): Expr | EvalResult {
   return expr
 }
 
-function evalExpr(expr: Expr): EvalResult {
+function evalExpr(expr: Expr, env: Map<string, number>): EvalResult {
   switch (expr.type) {
     case 'number':
       return { kind: 'value', value: expr.value }
+    case 'ident': {
+      const value = env.get(expr.name)
+      if (value == null) return { kind: 'error', error: `Undefined variable: ${expr.name}` }
+      return { kind: 'value', value }
+    }
     case 'unary': {
-      const inner = evalExpr(expr.expr)
+      const inner = evalExpr(expr.expr, env)
       if (inner.kind !== 'value') return inner
       return { kind: 'value', value: expr.op === '-' ? -inner.value : inner.value }
     }
     case 'binary': {
-      const left = evalExpr(expr.left)
+      const left = evalExpr(expr.left, env)
       if (left.kind !== 'value') return left
-      const right = evalExpr(expr.right)
+      const right = evalExpr(expr.right, env)
       if (right.kind !== 'value') return right
 
       if (expr.op === '+') return { kind: 'value', value: left.value + right.value }
@@ -175,7 +194,10 @@ function evalExpr(expr: Expr): EvalResult {
   }
 }
 
-export function evaluateExpression(source: string): EvalResult {
+export function evaluateExpression(
+  source: string,
+  env: Map<string, number> = new Map()
+): EvalResult {
   const trimmed = source.trim()
   if (trimmed === '') return { kind: 'empty' }
 
@@ -183,7 +205,7 @@ export function evaluateExpression(source: string): EvalResult {
   if (!Array.isArray(tokensOrError)) return tokensOrError
   const astOrError = parse(tokensOrError)
   if ('kind' in astOrError) return astOrError
-  return evalExpr(astOrError)
+  return evalExpr(astOrError, env)
 }
 
 export function formatValue(value: number): string {

@@ -1,4 +1,5 @@
-import { evaluateExpression, formatValue } from '../lang/expr'
+import { formatValue } from '../lang/expr'
+import { evaluateLine } from '../lang/program'
 import { parseDocument } from '../lang/parse'
 
 type CreateEditorOptions = {
@@ -103,6 +104,7 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
   gutter.setAttribute('aria-hidden', 'true')
 
   let lastValidValues: Array<number | null> = []
+  let lastValidAssignments: Array<{ name: string; value: number } | null> = []
   let committedLineIndices = new Set<number>()
   let activeLineIndex = 0
   let isSyncingScroll = false
@@ -128,17 +130,18 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
     committedLineIndices.add(activeLineIndex)
   }
 
-  const isMaybeMathExpression = (code: string): boolean => {
-    if (!/[0-9]/.test(code)) return false
-    return /^[0-9\s+\-*/().]+$/.test(code)
-  }
-
   const sync = () => {
     const documentAst = parseDocument(input.value)
 
     if (lastValidValues.length !== documentAst.lines.length) {
       lastValidValues = Array.from({ length: documentAst.lines.length }, (_, index) =>
         index < lastValidValues.length ? lastValidValues[index] : null
+      )
+    }
+
+    if (lastValidAssignments.length !== documentAst.lines.length) {
+      lastValidAssignments = Array.from({ length: documentAst.lines.length }, (_, index) =>
+        index < lastValidAssignments.length ? lastValidAssignments[index] : null
       )
     }
 
@@ -149,27 +152,52 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
     )
     activeLineIndex = Math.max(0, Math.min(activeLineIndex, documentAst.lines.length - 1))
 
+    const env = new Map<string, number>()
+
     const computations: LineComputation[] = documentAst.lines.map((line, index) => {
       const code = getLineCode(line)
+      const hasEquals = code.includes('=')
 
-      if (!isMaybeMathExpression(code)) {
+      if (!hasEquals) lastValidAssignments[index] = null
+
+      const evaluation = evaluateLine(code, env)
+
+      let resultKind: 'empty' | 'value' | 'error' = 'empty'
+      if (evaluation.kind === 'expr') resultKind = evaluation.result.kind
+      if (evaluation.kind === 'assign') resultKind = evaluation.result.kind
+      if (evaluation.kind === 'error') resultKind = 'error'
+
+      if (evaluation.kind === 'empty') {
         lastValidValues[index] = null
-        return {
-          code,
-          displayValue: '',
-          hasError: false,
-          showError: false
+        lastValidAssignments[index] = null
+      }
+
+      if (evaluation.kind === 'expr') {
+        if (evaluation.result.kind === 'value') lastValidValues[index] = evaluation.result.value
+        if (evaluation.result.kind === 'empty') lastValidValues[index] = null
+      }
+
+      if (evaluation.kind === 'assign') {
+        if (evaluation.result.kind === 'value') {
+          lastValidValues[index] = evaluation.result.value
+          lastValidAssignments[index] = { name: evaluation.name, value: evaluation.result.value }
+        }
+
+        if (evaluation.result.kind === 'error') {
+          const fallback = lastValidAssignments[index]
+          if (fallback && hasEquals) env.set(fallback.name, fallback.value)
         }
       }
 
-      const result = evaluateExpression(code)
-      if (result.kind === 'value') lastValidValues[index] = result.value
-      if (result.kind === 'empty') lastValidValues[index] = null
+      if (evaluation.kind === 'error') {
+        const fallback = lastValidAssignments[index]
+        if (fallback && hasEquals) env.set(fallback.name, fallback.value)
+      }
 
       const displayValue =
         lastValidValues[index] == null ? '' : formatValue(lastValidValues[index] as number)
 
-      const hasError = result.kind === 'error' && code.trim() !== ''
+      const hasError = resultKind === 'error' && code.trim() !== ''
       const showError = hasError && committedLineIndices.has(index) && index !== activeLineIndex
 
       return { code, displayValue, hasError, showError }
