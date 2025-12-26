@@ -43,3 +43,11 @@ test('rejects invalid assignment targets', () => {
   const env = new Map<string, Value>()
   expect(evaluateLine('1a = 2', env)).toEqual({ kind: 'error', error: 'Invalid assignment target' })
 })
+
+test('rejects assigning to total reserved name', () => {
+  const env = new Map<string, Value>()
+  expect(evaluateLine('total = 2', env)).toEqual({
+    kind: 'error',
+    error: 'Cannot assign to reserved name: total'
+  })
+})

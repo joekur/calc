@@ -3,6 +3,12 @@ import { expect, test } from 'vitest'
 import { vi } from 'vitest'
 import { createEditor } from './createEditor'
 
+function getGutterLineValues(gutter: HTMLElement): string[] {
+  return Array.from(gutter.querySelectorAll<HTMLElement>('.gutterLine')).map((line) =>
+    (line.textContent ?? '').replace(/\u200b/g, '').trim()
+  )
+}
+
 test('mirrors textarea input', () => {
   const editor = createEditor()
   document.body.append(editor)
@@ -89,6 +95,70 @@ test('renders evaluation results in the gutter', () => {
   fireEvent.input(input)
 
   expect(gutter.textContent).toContain('6')
+})
+
+test('supports total keyword for summing previous results', () => {
+  const editor = createEditor()
+  document.body.append(editor)
+
+  const input = editor.querySelector<HTMLTextAreaElement>('textarea.input')
+  const gutter = editor.querySelector<HTMLDivElement>('.gutter')
+  expect(input).not.toBeNull()
+  expect(gutter).not.toBeNull()
+  if (!input || !gutter) return
+
+  input.value = '2\n3\ntotal\n'
+  fireEvent.input(input)
+
+  expect(getGutterLineValues(gutter)).toEqual(['2', '3', '5', ''])
+})
+
+test('total ignores errored lines and does not count itself', () => {
+  const editor = createEditor()
+  document.body.append(editor)
+
+  const input = editor.querySelector<HTMLTextAreaElement>('textarea.input')
+  const gutter = editor.querySelector<HTMLDivElement>('.gutter')
+  expect(input).not.toBeNull()
+  expect(gutter).not.toBeNull()
+  if (!input || !gutter) return
+
+  input.value = '1 +\n2\ntotal\ntotal\n'
+  fireEvent.input(input)
+
+  expect(getGutterLineValues(gutter)).toEqual(['', '2', '2', '2', ''])
+})
+
+test('total resets after empty lines but not after comments', () => {
+  const editor = createEditor()
+  document.body.append(editor)
+
+  const input = editor.querySelector<HTMLTextAreaElement>('textarea.input')
+  const gutter = editor.querySelector<HTMLDivElement>('.gutter')
+  expect(input).not.toBeNull()
+  expect(gutter).not.toBeNull()
+  if (!input || !gutter) return
+
+  input.value = '2\n# note\n3\ntotal\n\n4\ntotal\n'
+  fireEvent.input(input)
+
+  expect(getGutterLineValues(gutter)).toEqual(['2', '', '3', '5', '', '4', '4', ''])
+})
+
+test('total can be used in expressions and assignments', () => {
+  const editor = createEditor()
+  document.body.append(editor)
+
+  const input = editor.querySelector<HTMLTextAreaElement>('textarea.input')
+  const gutter = editor.querySelector<HTMLDivElement>('.gutter')
+  expect(input).not.toBeNull()
+  expect(gutter).not.toBeNull()
+  if (!input || !gutter) return
+
+  input.value = '2\n3\ngrand = total * 2\n'
+  fireEvent.input(input)
+
+  expect(getGutterLineValues(gutter)).toEqual(['2', '3', '10', ''])
 })
 
 test('clicking a gutter value copies it', async () => {

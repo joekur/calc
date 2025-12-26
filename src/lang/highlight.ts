@@ -25,7 +25,7 @@ export function tokenizeForHighlight(source: string): HighlightToken[] {
       while (end < source.length && (source[end] === ' ' || source[end] === '\t')) end++
       if (end < source.length && /[0-9.]/.test(source[end])) {
         end++
-        while (end < source.length && /[0-9.]/.test(source[end])) end++
+        while (end < source.length && /[0-9.,]/.test(source[end])) end++
         tokens.push({ type: 'number', text: source.slice(index, end) })
         index = end
         continue
@@ -34,7 +34,8 @@ export function tokenizeForHighlight(source: string): HighlightToken[] {
 
     if (/[0-9.]/.test(char)) {
       let end = index + 1
-      while (end < source.length && /[0-9.]/.test(source[end])) end++
+      while (end < source.length && /[0-9.,]/.test(source[end])) end++
+      if (end < source.length && source[end] === '%') end++
       tokens.push({ type: 'number', text: source.slice(index, end) })
       index = end
       continue

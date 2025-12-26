@@ -55,6 +55,17 @@ test('adds thousands separators for non-scientific integers', () => {
   expect(formatValue({ amount: 12345678, unit: 'none' })).toBe('12,345,678')
 })
 
+test('parses numbers with thousands separators', () => {
+  expect(evaluateExpression('2,000 + 1')).toEqual({
+    kind: 'value',
+    value: { amount: 2001, unit: 'none' }
+  })
+  expect(evaluateExpression('$2,000 + $1')).toEqual({
+    kind: 'value',
+    value: { amount: 2001, unit: 'usd' }
+  })
+})
+
 test('formats very small values in scientific notation', () => {
   expect(formatValue({ amount: 0.0000000002, unit: 'none' })).toBe('2e-10')
 })

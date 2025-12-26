@@ -1,5 +1,5 @@
 import type { Value } from '../lang/expr'
-import { formatValue } from '../lang/expr'
+import { addValues, formatValue } from '../lang/expr'
 import { tokenizeForHighlight } from '../lang/highlight'
 import { evaluateLine } from '../lang/program'
 import { parseDocument } from '../lang/parse'
@@ -380,8 +380,17 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
 
     const env = new Map<string, Value>()
 
+    let blockTotal: Value = { amount: 0, unit: 'none' }
+
     const computations: LineComputation[] = documentAst.lines.map((line, index) => {
       const code = getLineCode(line)
+      const hasComment = line.nodes.some((node) => node.type === 'comment')
+      const isEmptyLineBreak = !hasComment && code.trim() === ''
+      if (isEmptyLineBreak) blockTotal = { amount: 0, unit: 'none' }
+
+      env.set('total', blockTotal)
+
+      const isTotalOnlyExpression = code.trim() === 'total'
       const hasEquals = code.includes('=')
       const shouldApplyAssignmentFallback =
         hasFocus && index === activeLineIndex && !revealedErrorLineIndices.has(index)
@@ -431,6 +440,19 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
         const fallback = lastValidAssignments[index]
         if (shouldApplyAssignmentFallback && fallback && hasEquals)
           env.set(fallback.name, fallback.value)
+      }
+
+      let valueForTotal: Value | null = null
+      if (evaluation.kind === 'expr' && evaluation.result.kind === 'value') {
+        valueForTotal = evaluation.result.value
+      }
+      if (evaluation.kind === 'assign' && evaluation.result.kind === 'value') {
+        valueForTotal = evaluation.result.value
+      }
+
+      if (valueForTotal && !isTotalOnlyExpression) {
+        const nextTotal = addValues(blockTotal, valueForTotal)
+        if (nextTotal.kind === 'value') blockTotal = nextTotal.value
       }
 
       const displayValue =

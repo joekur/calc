@@ -15,6 +15,10 @@ export function parseStatement(source: string): ParseStatementResult {
   const left = source.slice(0, equalsIndex).trim()
   const right = source.slice(equalsIndex + 1)
 
+  if (left === 'total') {
+    return { kind: 'error', error: 'Cannot assign to reserved name: total' }
+  }
+
   if (!identifierPattern.test(left)) {
     return { kind: 'error', error: 'Invalid assignment target' }
   }

@@ -31,6 +31,25 @@ function usdValue(amount: number): Value {
   return { amount, unit: 'usd' }
 }
 
+function parseNumericLiteral(raw: string): number | null {
+  if (raw.includes(',')) {
+    const [integerPart, fractionPart] = raw.split('.')
+    if (fractionPart != null && fractionPart.includes(',')) return null
+
+    const groups = integerPart.split(',')
+    if (groups.some((group) => group.length === 0)) return null
+    if (groups[0].length < 1 || groups[0].length > 3) return null
+    for (let index = 1; index < groups.length; index++) {
+      if (groups[index].length !== 3) return null
+    }
+  }
+
+  const normalized = raw.replace(/,/g, '')
+  const value = Number(normalized)
+  if (!Number.isFinite(value)) return null
+  return value
+}
+
 function tokenize(input: string): Token[] | EvalResult {
   const tokens: Token[] = []
 
@@ -69,10 +88,10 @@ function tokenize(input: string): Token[] | EvalResult {
       }
 
       let end = index + 1
-      while (end < input.length && /[0-9.]/.test(input[end])) end++
+      while (end < input.length && /[0-9.,]/.test(input[end])) end++
       const rawNumber = input.slice(index, end)
-      const value = Number(rawNumber)
-      if (!Number.isFinite(value)) {
+      const value = parseNumericLiteral(rawNumber)
+      if (value == null) {
         return { kind: 'error', error: `Invalid number: ${rawNumber}` }
       }
 
@@ -91,10 +110,10 @@ function tokenize(input: string): Token[] | EvalResult {
 
     if (/[0-9.]/.test(char)) {
       let end = index + 1
-      while (end < input.length && /[0-9.]/.test(input[end])) end++
+      while (end < input.length && /[0-9.,]/.test(input[end])) end++
       const raw = input.slice(index, end)
-      const value = Number(raw)
-      if (!Number.isFinite(value)) {
+      const value = parseNumericLiteral(raw)
+      if (value == null) {
         return { kind: 'error', error: `Invalid number: ${raw}` }
       }
       tokens.push({ type: 'number', raw, value: numberValue(value) })
@@ -270,6 +289,10 @@ function evalBinary(op: '+' | '-' | '*' | '/' | '^', left: Value, right: Value):
   }
 
   return { kind: 'error', error: 'Unknown operator' }
+}
+
+export function addValues(left: Value, right: Value): EvalResult {
+  return evalBinary('+', left, right)
 }
 
 function evalExpr(expr: Expr, env: Map<string, Value>): EvalResult {
