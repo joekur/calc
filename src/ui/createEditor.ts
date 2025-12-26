@@ -14,6 +14,7 @@ type LineComputation = {
   displayValue: string
   hasError: boolean
   showError: boolean
+  errorMessage: string | null
 }
 
 function getLineCode(line: ReturnType<typeof parseDocument>['lines'][number]): string {
@@ -124,11 +125,208 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
   gutter.className = 'gutter'
   gutter.setAttribute('aria-hidden', 'true')
 
+  const tooltip = document.createElement('div')
+  tooltip.className = 'errorTooltip'
+  tooltip.setAttribute('role', 'tooltip')
+  tooltip.style.display = 'none'
+
   let lastValidValues: Array<Value | null> = []
   let lastValidAssignments: Array<{ name: string; value: Value } | null> = []
   let activeLineIndex = 0
   let hasFocus = false
   let isSyncingScroll = false
+  let latestComputations: LineComputation[] = []
+  let mirrorLines: HTMLElement[] = []
+
+  let revealedErrorLineIndices = new Set<number>()
+  let activeLineIdleTimer: number | null = null
+  let activeLineActivityVersion = 0
+
+  const activeLineIdleDelayMs = 2000
+
+  let tooltipLineIndex: number | null = null
+  let tooltipShowTimer: number | null = null
+  let tooltipHideTimer: number | null = null
+  let pendingTooltip: { lineIndex: number; message: string } | null = null
+
+  const tooltipDelayMs = 300
+  const tooltipGapPx = 8
+  const tooltipViewportPaddingPx = 8
+
+  const clearTooltipTimers = () => {
+    if (tooltipShowTimer != null) window.clearTimeout(tooltipShowTimer)
+    if (tooltipHideTimer != null) window.clearTimeout(tooltipHideTimer)
+    tooltipShowTimer = null
+    tooltipHideTimer = null
+  }
+
+  const resetActiveLineIdleTimer = () => {
+    activeLineActivityVersion++
+    if (activeLineIdleTimer != null) window.clearTimeout(activeLineIdleTimer)
+    activeLineIdleTimer = null
+  }
+
+  const scheduleActiveLineIdleErrorReveal = () => {
+    if (!hasFocus) return
+
+    if (revealedErrorLineIndices.has(activeLineIndex)) return
+
+    const versionAtSchedule = ++activeLineActivityVersion
+    const lineIndexAtSchedule = activeLineIndex
+
+    if (activeLineIdleTimer != null) window.clearTimeout(activeLineIdleTimer)
+
+    activeLineIdleTimer = window.setTimeout(() => {
+      activeLineIdleTimer = null
+      if (!hasFocus) return
+      if (activeLineIndex !== lineIndexAtSchedule) return
+      if (activeLineActivityVersion !== versionAtSchedule) return
+
+      revealedErrorLineIndices.add(activeLineIndex)
+      sync()
+    }, activeLineIdleDelayMs)
+  }
+
+  const hideTooltipNow = () => {
+    clearTooltipTimers()
+    pendingTooltip = null
+    tooltipLineIndex = null
+    tooltip.style.display = 'none'
+    tooltip.textContent = ''
+  }
+
+  const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max)
+
+  const getErrorAnchorRect = (lineIndex: number): DOMRect | null => {
+    const lineEl = mirrorLines[lineIndex]
+    if (!lineEl) return null
+
+    const errorEl = lineEl.querySelector<HTMLElement>('.tok-code.tok-error')
+    if (errorEl) return errorEl.getBoundingClientRect()
+
+    const codeEl = lineEl.querySelector<HTMLElement>('.tok-code')
+    if (codeEl) return codeEl.getBoundingClientRect()
+
+    return lineEl.getBoundingClientRect()
+  }
+
+  const positionTooltipForLine = (lineIndex: number) => {
+    const surfaceRect = surface.getBoundingClientRect()
+    const anchorRect = getErrorAnchorRect(lineIndex)
+    if (!anchorRect) return
+
+    const tooltipRect = tooltip.getBoundingClientRect()
+
+    const surfaceWidth = surfaceRect.width
+    const surfaceHeight = surfaceRect.height
+
+    const leftIdeal = anchorRect.left - surfaceRect.left
+    const leftMax = Math.max(
+      tooltipViewportPaddingPx,
+      surfaceWidth - tooltipRect.width - tooltipViewportPaddingPx
+    )
+    const left = clamp(leftIdeal, tooltipViewportPaddingPx, leftMax)
+
+    const topBelow = anchorRect.bottom - surfaceRect.top + tooltipGapPx
+
+    const topAbove = anchorRect.top - surfaceRect.top - tooltipRect.height - tooltipGapPx
+    const fitsBelow = topBelow + tooltipRect.height <= surfaceHeight - tooltipViewportPaddingPx
+    const top = fitsBelow ? topBelow : topAbove
+
+    const topMax = Math.max(
+      tooltipViewportPaddingPx,
+      surfaceHeight - tooltipRect.height - tooltipViewportPaddingPx
+    )
+    tooltip.style.left = `${left}px`
+    tooltip.style.top = `${clamp(top, tooltipViewportPaddingPx, topMax)}px`
+  }
+
+  const showTooltipNow = (lineIndex: number, message: string) => {
+    clearTooltipTimers()
+    pendingTooltip = null
+    tooltipLineIndex = lineIndex
+    tooltip.textContent = message
+    tooltip.style.display = 'block'
+    positionTooltipForLine(lineIndex)
+  }
+
+  const scheduleTooltipShow = (lineIndex: number, message: string) => {
+    if (tooltipHideTimer != null) window.clearTimeout(tooltipHideTimer)
+    tooltipHideTimer = null
+
+    pendingTooltip = { lineIndex, message }
+    if (tooltipShowTimer != null) return
+
+    tooltipShowTimer = window.setTimeout(() => {
+      tooltipShowTimer = null
+      if (!pendingTooltip) return
+      showTooltipNow(pendingTooltip.lineIndex, pendingTooltip.message)
+    }, tooltipDelayMs)
+  }
+
+  const scheduleTooltipHide = () => {
+    if (tooltipShowTimer != null) window.clearTimeout(tooltipShowTimer)
+    tooltipShowTimer = null
+    pendingTooltip = null
+
+    const isPinnedToActiveLine =
+      tooltipLineIndex != null &&
+      tooltip.style.display !== 'none' &&
+      hasFocus &&
+      tooltipLineIndex === activeLineIndex
+
+    if (isPinnedToActiveLine) return
+
+    if (tooltip.style.display === 'none') return
+    if (tooltipHideTimer != null) return
+
+    tooltipHideTimer = window.setTimeout(() => {
+      tooltipHideTimer = null
+      hideTooltipNow()
+    }, tooltipDelayMs)
+  }
+
+  const getLineIndexAtClientY = (clientY: number): number | null => {
+    for (let index = 0; index < mirrorLines.length; index++) {
+      const rect = mirrorLines[index].getBoundingClientRect()
+      if (clientY >= rect.top && clientY <= rect.bottom) return index
+    }
+    return null
+  }
+
+  const updateTooltipForMouse = (event: MouseEvent) => {
+    const isPinnedToActiveLine =
+      tooltipLineIndex != null &&
+      tooltip.style.display !== 'none' &&
+      hasFocus &&
+      tooltipLineIndex === activeLineIndex
+
+    const lineIndex = getLineIndexAtClientY(event.clientY)
+    if (lineIndex == null) {
+      if (isPinnedToActiveLine) return
+      scheduleTooltipHide()
+      return
+    }
+
+    if (isPinnedToActiveLine && lineIndex !== tooltipLineIndex) return
+
+    const computation = latestComputations[lineIndex]
+    const message = computation?.errorMessage
+    if (!computation?.showError || !message) {
+      scheduleTooltipHide()
+      return
+    }
+
+    if (tooltip.style.display !== 'none') {
+      if (tooltipLineIndex !== lineIndex) {
+        showTooltipNow(lineIndex, message)
+        return
+      }
+      return
+    }
+
+    scheduleTooltipShow(lineIndex, message)
+  }
 
   const getCaretLineIndex = (): number => {
     const caret = input.selectionStart ?? 0
@@ -159,6 +357,12 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
       )
     }
 
+    revealedErrorLineIndices = new Set(
+      Array.from(revealedErrorLineIndices).filter(
+        (index) => index >= 0 && index < documentAst.lines.length
+      )
+    )
+
     activeLineIndex = Math.max(0, Math.min(activeLineIndex, documentAst.lines.length - 1))
 
     const env = new Map<string, Value>()
@@ -175,6 +379,15 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
       if (evaluation.kind === 'expr') resultKind = evaluation.result.kind
       if (evaluation.kind === 'assign') resultKind = evaluation.result.kind
       if (evaluation.kind === 'error') resultKind = 'error'
+
+      let errorMessage: string | null = null
+      if (evaluation.kind === 'error') errorMessage = evaluation.error
+      if (evaluation.kind === 'expr' && evaluation.result.kind === 'error') {
+        errorMessage = evaluation.result.error
+      }
+      if (evaluation.kind === 'assign' && evaluation.result.kind === 'error') {
+        errorMessage = evaluation.result.error
+      }
 
       if (evaluation.kind === 'empty') {
         lastValidValues[index] = null
@@ -207,25 +420,68 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
         lastValidValues[index] == null ? '' : formatValue(lastValidValues[index] as Value)
 
       const hasError = resultKind === 'error' && code.trim() !== ''
-      const showError = hasError && (!hasFocus || index !== activeLineIndex)
+      const showError =
+        hasError && (!hasFocus || index !== activeLineIndex || revealedErrorLineIndices.has(index))
 
-      return { code, displayValue, hasError, showError }
+      return {
+        code,
+        displayValue,
+        hasError,
+        showError,
+        errorMessage: hasError ? errorMessage : null
+      }
     })
+
+    for (let index = 0; index < computations.length; index++) {
+      const computation = computations[index]
+
+      if (!computation.hasError) {
+        revealedErrorLineIndices.delete(index)
+        continue
+      }
+
+      // Any error line that is currently visible becomes "revealed" and stays
+      // visible even when it becomes the active line.
+      if (!hasFocus || index !== activeLineIndex) {
+        revealedErrorLineIndices.add(index)
+      }
+    }
+
+    latestComputations = computations
 
     renderMirror(mirror, documentAst, computations)
     renderGutter(gutter, computations)
     syncGutterLineHeights(mirror, gutter)
+
+    mirrorLines = Array.from(mirror.querySelectorAll<HTMLElement>('.mirrorLine'))
+
+    if (tooltipLineIndex != null) {
+      const tooltipComputation = latestComputations[tooltipLineIndex]
+      if (!tooltipComputation?.showError || !tooltipComputation.errorMessage) {
+        hideTooltipNow()
+      } else if (tooltip.style.display !== 'none') {
+        positionTooltipForLine(tooltipLineIndex)
+      }
+    }
   }
 
   input.addEventListener('input', () => {
     updateActiveLineIndex()
+    resetActiveLineIdleTimer()
+    scheduleActiveLineIdleErrorReveal()
     sync()
   })
 
   const handleCursorMove = () => {
     const previous = activeLineIndex
     updateActiveLineIndex()
-    if (previous !== activeLineIndex) sync()
+    if (previous !== activeLineIndex) {
+      resetActiveLineIdleTimer()
+      scheduleActiveLineIdleErrorReveal()
+
+      if (tooltipLineIndex === previous) scheduleTooltipHide()
+      sync()
+    }
   }
 
   input.addEventListener('keyup', handleCursorMove)
@@ -233,11 +489,19 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
   input.addEventListener('focus', () => {
     hasFocus = true
     updateActiveLineIndex()
+    resetActiveLineIdleTimer()
+    scheduleActiveLineIdleErrorReveal()
     sync()
   })
   input.addEventListener('blur', () => {
     hasFocus = false
+    resetActiveLineIdleTimer()
+    hideTooltipNow()
     sync()
+  })
+  input.addEventListener('mousemove', updateTooltipForMouse)
+  input.addEventListener('mouseleave', () => {
+    scheduleTooltipHide()
   })
   input.addEventListener('scroll', () => {
     if (isSyncingScroll) return
@@ -245,6 +509,8 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
     mirror.scrollTop = input.scrollTop
     gutter.scrollTop = input.scrollTop
     isSyncingScroll = false
+
+    hideTooltipNow()
   })
 
   gutter.addEventListener('scroll', () => {
@@ -255,7 +521,7 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
     isSyncingScroll = false
   })
 
-  surface.append(mirror, input)
+  surface.append(mirror, input, tooltip)
   editor.append(surface, gutter)
   sync()
 

@@ -1,5 +1,6 @@
 import { fireEvent } from '@testing-library/dom'
 import { expect, test } from 'vitest'
+import { vi } from 'vitest'
 import { createEditor } from './createEditor'
 
 test('mirrors textarea input', () => {
@@ -166,4 +167,345 @@ test('shows pasted errors for non-active lines', () => {
   fireEvent.input(input)
 
   expect(editor.querySelector('.tok-error')).not.toBeNull()
+})
+
+test('shows error tooltip with a delay on hover', () => {
+  vi.useFakeTimers()
+
+  const editor = createEditor()
+  document.body.append(editor)
+
+  const input = editor.querySelector<HTMLTextAreaElement>('textarea.input')
+  const surface = editor.querySelector<HTMLDivElement>('.surface')
+  const mirror = editor.querySelector<HTMLDivElement>('.mirror')
+  const tooltip = editor.querySelector<HTMLDivElement>('.errorTooltip')
+  expect(input).not.toBeNull()
+  expect(surface).not.toBeNull()
+  expect(mirror).not.toBeNull()
+  expect(tooltip).not.toBeNull()
+  if (!input || !surface || !mirror || !tooltip) return
+
+  fireEvent.focus(input)
+  input.value = '1 +\n2 + 2\n'
+  input.selectionStart = input.value.length
+  input.selectionEnd = input.value.length
+  fireEvent.input(input)
+
+  const lines = Array.from(mirror.querySelectorAll<HTMLElement>('.mirrorLine'))
+  expect(lines.length).toBeGreaterThanOrEqual(2)
+  if (lines.length < 2) return
+
+  const errorSpan = lines[0].querySelector<HTMLElement>('.tok-code.tok-error')
+  expect(errorSpan).not.toBeNull()
+  if (!errorSpan) return
+
+  surface.getBoundingClientRect = () =>
+    ({
+      left: 0,
+      top: 0,
+      right: 500,
+      bottom: 500,
+      width: 500,
+      height: 500,
+      x: 0,
+      y: 0,
+      toJSON: () => {}
+    }) as DOMRect
+  lines[0].getBoundingClientRect = () =>
+    ({
+      left: 0,
+      top: 0,
+      right: 200,
+      bottom: 20,
+      width: 200,
+      height: 20,
+      x: 0,
+      y: 0,
+      toJSON: () => {}
+    }) as DOMRect
+  lines[1].getBoundingClientRect = () =>
+    ({
+      left: 0,
+      top: 20,
+      right: 200,
+      bottom: 40,
+      width: 200,
+      height: 20,
+      x: 0,
+      y: 20,
+      toJSON: () => {}
+    }) as DOMRect
+  errorSpan.getBoundingClientRect = () =>
+    ({
+      left: 50,
+      top: 100,
+      right: 250,
+      bottom: 120,
+      width: 200,
+      height: 20,
+      x: 50,
+      y: 100,
+      toJSON: () => {}
+    }) as DOMRect
+  tooltip.getBoundingClientRect = () =>
+    ({
+      left: 0,
+      top: 0,
+      right: 200,
+      bottom: 40,
+      width: 200,
+      height: 40,
+      x: 0,
+      y: 0,
+      toJSON: () => {}
+    }) as DOMRect
+
+  fireEvent.mouseMove(input, { clientX: 10, clientY: 10 })
+  expect(tooltip.style.display).toBe('none')
+
+  vi.advanceTimersByTime(300)
+  expect(tooltip.style.display).toBe('block')
+  expect(tooltip.textContent?.length).toBeGreaterThan(0)
+  expect(tooltip.style.top).toBe('128px')
+  expect(tooltip.style.left).toBe('50px')
+
+  fireEvent.mouseLeave(input)
+  expect(tooltip.style.display).toBe('block')
+  vi.advanceTimersByTime(300)
+  expect(tooltip.style.display).toBe('none')
+
+  vi.useRealTimers()
+})
+
+test('positions tooltip above when there is no space below', () => {
+  vi.useFakeTimers()
+
+  const editor = createEditor()
+  document.body.append(editor)
+
+  const input = editor.querySelector<HTMLTextAreaElement>('textarea.input')
+  const surface = editor.querySelector<HTMLDivElement>('.surface')
+  const mirror = editor.querySelector<HTMLDivElement>('.mirror')
+  const tooltip = editor.querySelector<HTMLDivElement>('.errorTooltip')
+  expect(input).not.toBeNull()
+  expect(surface).not.toBeNull()
+  expect(mirror).not.toBeNull()
+  expect(tooltip).not.toBeNull()
+  if (!input || !surface || !mirror || !tooltip) return
+
+  fireEvent.focus(input)
+  input.value = '1 +\n2 + 2\n'
+  input.selectionStart = input.value.length
+  input.selectionEnd = input.value.length
+  fireEvent.input(input)
+
+  const lines = Array.from(mirror.querySelectorAll<HTMLElement>('.mirrorLine'))
+  expect(lines.length).toBeGreaterThanOrEqual(1)
+  if (lines.length < 1) return
+
+  const errorSpan = lines[0].querySelector<HTMLElement>('.tok-code.tok-error')
+  expect(errorSpan).not.toBeNull()
+  if (!errorSpan) return
+
+  surface.getBoundingClientRect = () =>
+    ({
+      left: 0,
+      top: 0,
+      right: 500,
+      bottom: 100,
+      width: 500,
+      height: 100,
+      x: 0,
+      y: 0,
+      toJSON: () => {}
+    }) as DOMRect
+  lines[0].getBoundingClientRect = () =>
+    ({
+      left: 0,
+      top: 0,
+      right: 200,
+      bottom: 20,
+      width: 200,
+      height: 20,
+      x: 0,
+      y: 0,
+      toJSON: () => {}
+    }) as DOMRect
+  errorSpan.getBoundingClientRect = () =>
+    ({
+      left: 10,
+      top: 60,
+      right: 210,
+      bottom: 80,
+      width: 200,
+      height: 20,
+      x: 10,
+      y: 60,
+      toJSON: () => {}
+    }) as DOMRect
+  tooltip.getBoundingClientRect = () =>
+    ({
+      left: 0,
+      top: 0,
+      right: 200,
+      bottom: 40,
+      width: 200,
+      height: 40,
+      x: 0,
+      y: 0,
+      toJSON: () => {}
+    }) as DOMRect
+
+  fireEvent.mouseMove(input, { clientX: 10, clientY: 10 })
+  vi.advanceTimersByTime(300)
+  expect(tooltip.style.display).toBe('block')
+  expect(tooltip.style.top).toBe('12px')
+
+  vi.useRealTimers()
+})
+
+test('shows active line error underline after 2s idle', () => {
+  vi.useFakeTimers()
+
+  const editor = createEditor()
+  document.body.append(editor)
+
+  const input = editor.querySelector<HTMLTextAreaElement>('textarea.input')
+  expect(input).not.toBeNull()
+  if (!input) return
+
+  fireEvent.focus(input)
+  input.value = '1 +'
+  input.selectionStart = input.value.length
+  input.selectionEnd = input.value.length
+  fireEvent.input(input)
+  expect(editor.querySelector('.tok-error')).toBeNull()
+
+  vi.advanceTimersByTime(2000)
+  expect(editor.querySelector('.tok-error')).not.toBeNull()
+
+  vi.useRealTimers()
+})
+
+test('keeps error underline visible when refocusing an errored line', () => {
+  const editor = createEditor()
+  document.body.append(editor)
+
+  const input = editor.querySelector<HTMLTextAreaElement>('textarea.input')
+  expect(input).not.toBeNull()
+  if (!input) return
+
+  fireEvent.focus(input)
+
+  input.value = '1 +\n\n'
+  input.selectionStart = input.value.length
+  input.selectionEnd = input.value.length
+  fireEvent.input(input)
+
+  expect(editor.querySelector('.tok-error')).not.toBeNull()
+
+  input.selectionStart = 2
+  input.selectionEnd = 2
+  fireEvent.keyUp(input)
+
+  expect(editor.querySelector('.tok-error')).not.toBeNull()
+})
+
+test('keeps error tooltip open while line is active', () => {
+  vi.useFakeTimers()
+
+  const editor = createEditor()
+  document.body.append(editor)
+
+  const input = editor.querySelector<HTMLTextAreaElement>('textarea.input')
+  const surface = editor.querySelector<HTMLDivElement>('.surface')
+  const mirror = editor.querySelector<HTMLDivElement>('.mirror')
+  const tooltip = editor.querySelector<HTMLDivElement>('.errorTooltip')
+  expect(input).not.toBeNull()
+  expect(surface).not.toBeNull()
+  expect(mirror).not.toBeNull()
+  expect(tooltip).not.toBeNull()
+  if (!input || !surface || !mirror || !tooltip) return
+
+  fireEvent.focus(input)
+  input.value = '1 +'
+  input.selectionStart = input.value.length
+  input.selectionEnd = input.value.length
+  fireEvent.input(input)
+
+  vi.advanceTimersByTime(2000)
+
+  const lines = Array.from(mirror.querySelectorAll<HTMLElement>('.mirrorLine'))
+  expect(lines.length).toBeGreaterThanOrEqual(1)
+  if (lines.length < 1) return
+
+  const errorSpan = lines[0].querySelector<HTMLElement>('.tok-code.tok-error')
+  expect(errorSpan).not.toBeNull()
+  if (!errorSpan) return
+
+  surface.getBoundingClientRect = () =>
+    ({
+      left: 0,
+      top: 0,
+      right: 500,
+      bottom: 500,
+      width: 500,
+      height: 500,
+      x: 0,
+      y: 0,
+      toJSON: () => {}
+    }) as DOMRect
+  lines[0].getBoundingClientRect = () =>
+    ({
+      left: 0,
+      top: 0,
+      right: 200,
+      bottom: 20,
+      width: 200,
+      height: 20,
+      x: 0,
+      y: 0,
+      toJSON: () => {}
+    }) as DOMRect
+  errorSpan.getBoundingClientRect = () =>
+    ({
+      left: 50,
+      top: 100,
+      right: 250,
+      bottom: 120,
+      width: 200,
+      height: 20,
+      x: 50,
+      y: 100,
+      toJSON: () => {}
+    }) as DOMRect
+  tooltip.getBoundingClientRect = () =>
+    ({
+      left: 0,
+      top: 0,
+      right: 200,
+      bottom: 40,
+      width: 200,
+      height: 40,
+      x: 0,
+      y: 0,
+      toJSON: () => {}
+    }) as DOMRect
+
+  fireEvent.mouseMove(input, { clientX: 10, clientY: 10 })
+  vi.advanceTimersByTime(300)
+
+  expect(tooltip.style.display).toBe('block')
+  expect(tooltip.textContent?.length).toBeGreaterThan(0)
+
+  input.selectionStart = 1
+  input.selectionEnd = 1
+  fireEvent.keyUp(input)
+  expect(tooltip.style.display).toBe('block')
+
+  fireEvent.mouseLeave(input)
+  vi.advanceTimersByTime(300)
+  expect(tooltip.style.display).toBe('block')
+
+  vi.useRealTimers()
 })

@@ -8,6 +8,7 @@
 
 ## Next (language + output)
 
+- Add independent syntax color for assignment expression variables. E.g. `foo = bar + 1` - `foo` should get a unique color
 - Support `// comments` like this, both line and in-line
 - Result formatting
   - Add thousands separators for large numbers.
