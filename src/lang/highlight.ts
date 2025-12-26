@@ -54,7 +54,14 @@ export function tokenizeForHighlight(source: string): HighlightToken[] {
       continue
     }
 
-    if (char === '+' || char === '-' || char === '*' || char === '/' || char === '=') {
+    if (
+      char === '+' ||
+      char === '-' ||
+      char === '*' ||
+      char === '/' ||
+      char === '^' ||
+      char === '='
+    ) {
       tokens.push({ type: 'operator', text: char })
       index++
       continue

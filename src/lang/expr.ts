@@ -1,7 +1,7 @@
 type Token =
   | { type: 'number'; value: Value; raw: string }
   | { type: 'ident'; name: string }
-  | { type: 'op'; value: '+' | '-' | '*' | '/' }
+  | { type: 'op'; value: '+' | '-' | '*' | '/' | '^' }
   | { type: 'lparen' }
   | { type: 'rparen' }
 
@@ -9,7 +9,7 @@ type Expr =
   | { type: 'number'; value: Value }
   | { type: 'ident'; name: string }
   | { type: 'unary'; op: '+' | '-'; expr: Expr }
-  | { type: 'binary'; op: '+' | '-' | '*' | '/'; left: Expr; right: Expr }
+  | { type: 'binary'; op: '+' | '-' | '*' | '/' | '^'; left: Expr; right: Expr }
 
 export type Unit = 'none' | 'usd'
 
@@ -53,7 +53,7 @@ function tokenize(input: string): Token[] | EvalResult {
       continue
     }
 
-    if (char === '+' || char === '-' || char === '*' || char === '/') {
+    if (char === '+' || char === '-' || char === '*' || char === '/' || char === '^') {
       tokens.push({ type: 'op', value: char })
       index++
       continue
@@ -165,7 +165,23 @@ function parse(tokens: Token[]): Expr | EvalResult {
       if ('kind' in expr) return expr
       return { type: 'unary', op: token.value, expr }
     }
-    return parsePrimary()
+    return parsePow()
+  }
+
+  // Right-associative exponentiation with higher precedence than unary.
+  // Example: 2 ^ 3 ^ 2 == 2 ^ (3 ^ 2)
+  // Example: -2 ^ 2 == -(2 ^ 2)
+  const parsePow = (): Expr | EvalResult => {
+    const left = parsePrimary()
+    if ('kind' in left) return left
+
+    const op = peekOp(['^'])
+    if (!op) return left
+
+    consume()
+    const right = parsePow()
+    if ('kind' in right) return right
+    return { type: 'binary', op, left, right }
   }
 
   const parsePrimary = (): Expr | EvalResult => {
@@ -203,7 +219,7 @@ function evalUnary(op: '+' | '-', value: Value): Value {
   return { amount: op === '-' ? -value.amount : value.amount, unit: value.unit }
 }
 
-function evalBinary(op: '+' | '-' | '*' | '/', left: Value, right: Value): EvalResult {
+function evalBinary(op: '+' | '-' | '*' | '/' | '^', left: Value, right: Value): EvalResult {
   if (op === '+' || op === '-') {
     // Promote unitless numbers to the other operand's unit.
     if (left.unit !== right.unit) {
@@ -241,6 +257,16 @@ function evalBinary(op: '+' | '-' | '*' | '/', left: Value, right: Value): EvalR
     }
 
     return { kind: 'error', error: 'Unit mismatch' }
+  }
+
+  if (op === '^') {
+    if (left.unit !== 'none' || right.unit !== 'none') {
+      return { kind: 'error', error: 'Cannot exponentiate unit values' }
+    }
+
+    const value = Math.pow(left.amount, right.amount)
+    if (!Number.isFinite(value)) return { kind: 'error', error: 'Invalid exponentiation' }
+    return { kind: 'value', value: { unit: 'none', amount: value } }
   }
 
   return { kind: 'error', error: 'Unknown operator' }

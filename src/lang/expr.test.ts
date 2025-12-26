@@ -12,6 +12,29 @@ test('evaluates basic precedence', () => {
   })
 })
 
+test('supports exponent operator ^', () => {
+  expect(evaluateExpression('2 ^ 3')).toEqual({
+    kind: 'value',
+    value: { amount: 8, unit: 'none' }
+  })
+  expect(evaluateExpression('2 ^ 3 ^ 2')).toEqual({
+    kind: 'value',
+    value: { amount: 512, unit: 'none' }
+  })
+  expect(evaluateExpression('2 * 3 ^ 2')).toEqual({
+    kind: 'value',
+    value: { amount: 18, unit: 'none' }
+  })
+  expect(evaluateExpression('-2 ^ 2')).toEqual({
+    kind: 'value',
+    value: { amount: -4, unit: 'none' }
+  })
+  expect(evaluateExpression('(-2) ^ 2')).toEqual({
+    kind: 'value',
+    value: { amount: 4, unit: 'none' }
+  })
+})
+
 test('supports unary minus', () => {
   expect(evaluateExpression('-1 + 2')).toEqual({
     kind: 'value',
