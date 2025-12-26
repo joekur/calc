@@ -56,6 +56,7 @@ function renderMirror(
       for (const token of tokenizeForHighlight(node.text)) {
         const tokenEl = document.createElement('span')
         if (token.type === 'ident') tokenEl.className = 'tok-variable'
+        if (token.type === 'assignTarget') tokenEl.className = 'tok-assignTarget'
         if (token.type === 'number') tokenEl.className = 'tok-number'
         if (token.type === 'operator') tokenEl.className = 'tok-operator'
         if (token.type === 'paren') tokenEl.className = 'tok-paren'

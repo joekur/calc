@@ -2,12 +2,22 @@ export type HighlightToken =
   | { type: 'whitespace'; text: string }
   | { type: 'number'; text: string }
   | { type: 'ident'; text: string }
+  | { type: 'assignTarget'; text: string }
   | { type: 'operator'; text: string }
   | { type: 'paren'; text: string }
   | { type: 'unknown'; text: string }
 
 export function tokenizeForHighlight(source: string): HighlightToken[] {
   const tokens: HighlightToken[] = []
+
+  const assignmentTargetMatch = source.match(/^[ \t]*([A-Za-z_][A-Za-z0-9_]*)[ \t]*=/)
+  const assignmentTargetStart = assignmentTargetMatch
+    ? assignmentTargetMatch[0].indexOf(assignmentTargetMatch[1])
+    : -1
+  const assignmentTargetEnd =
+    assignmentTargetStart >= 0 && assignmentTargetMatch
+      ? assignmentTargetStart + assignmentTargetMatch[1].length
+      : -1
 
   for (let index = 0; index < source.length; ) {
     const char = source[index]
@@ -44,7 +54,10 @@ export function tokenizeForHighlight(source: string): HighlightToken[] {
     if (/[A-Za-z_]/.test(char)) {
       let end = index + 1
       while (end < source.length && /[A-Za-z0-9_]/.test(source[end])) end++
-      tokens.push({ type: 'ident', text: source.slice(index, end) })
+
+      const type =
+        assignmentTargetStart === index && assignmentTargetEnd === end ? 'assignTarget' : 'ident'
+      tokens.push({ type, text: source.slice(index, end) })
       index = end
       continue
     }

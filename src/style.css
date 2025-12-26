@@ -39,6 +39,7 @@
   --syntax-comment-fg: var(--solarized-base01);
   --syntax-number-fg: var(--solarized-cyan);
   --syntax-variable-fg: var(--solarized-blue);
+  --syntax-assign-target-fg: var(--solarized-violet);
   --syntax-operator-fg: var(--solarized-yellow);
   --syntax-paren-fg: var(--solarized-base1);
 
@@ -166,6 +167,10 @@ body {
 
 .tok-variable {
   color: var(--syntax-variable-fg, var(--app-text-fg));
+}
+
+.tok-assignTarget {
+  color: var(--syntax-assign-target-fg, var(--app-text-fg));
 }
 
 .tok-operator {

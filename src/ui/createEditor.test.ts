@@ -73,9 +73,10 @@ test('highlights variables and operators', () => {
   expect(mirror).not.toBeNull()
   if (!input || !mirror) return
 
-  input.value = 'salary = (43000 + 2) * 0.3'
+  input.value = 'salary = (income + 2) * 0.3'
   fireEvent.input(input)
 
+  expect(mirror.querySelector('.tok-assignTarget')).not.toBeNull()
   expect(mirror.querySelector('.tok-variable')).not.toBeNull()
   expect(mirror.querySelector('.tok-operator')).not.toBeNull()
   expect(mirror.querySelector('.tok-paren')).not.toBeNull()

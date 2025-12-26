@@ -2,15 +2,14 @@
 
 ## Next (language + output)
 
+- Basic math functions: `max(a,b)`, `min(a,b)`, `round(x)`, `ceil(x)`, `floor(x)`.
 - Use vitest browser for createEditor tests, with real browser APIs
-- Add independent syntax color for assignment expression variables. E.g. `foo = bar + 1` - `foo` should get a unique color
 - Support `// comments` like this, both line and in-line
 - Percent unit `%`
   - Distinct percent behavior.
   - Examples:
     - `200 + 30%` => `260` (percent-of-left-operand semantics)
     - `5/3 * 100%` => `166.666…%` (percent can be used as a unit in expressions)
-- Basic math functions: `max(a,b)`, `min(a,b)`, `round(x)`, `ceil(x)`, `floor(x)`.
 
 ## Later (units, documents, theming)
 
