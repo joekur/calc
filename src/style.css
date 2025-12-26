@@ -42,8 +42,8 @@
   --syntax-operator-fg: var(--solarized-yellow);
   --syntax-paren-fg: var(--solarized-base1);
 
-  --gutter-fg: var(--solarized-base1);
-  --gutter-error-fg: var(--solarized-base3);
+  --gutter-fg: var(--solarized-green);
+  --gutter-error-fg: var(--solarized-red);
 }
 
 body {
