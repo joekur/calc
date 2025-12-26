@@ -126,8 +126,8 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
 
   let lastValidValues: Array<Value | null> = []
   let lastValidAssignments: Array<{ name: string; value: Value } | null> = []
-  let committedLineIndices = new Set<number>()
   let activeLineIndex = 0
+  let hasFocus = false
   let isSyncingScroll = false
 
   const getCaretLineIndex = (): number => {
@@ -141,14 +141,7 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
 
   const updateActiveLineIndex = () => {
     const next = getCaretLineIndex()
-    if (next !== activeLineIndex) {
-      committedLineIndices.add(activeLineIndex)
-      activeLineIndex = next
-    }
-  }
-
-  const commitActiveLine = () => {
-    committedLineIndices.add(activeLineIndex)
+    activeLineIndex = next
   }
 
   const sync = () => {
@@ -166,11 +159,6 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
       )
     }
 
-    committedLineIndices = new Set(
-      Array.from(committedLineIndices).filter(
-        (index) => index >= 0 && index < documentAst.lines.length
-      )
-    )
     activeLineIndex = Math.max(0, Math.min(activeLineIndex, documentAst.lines.length - 1))
 
     const env = new Map<string, Value>()
@@ -219,7 +207,7 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
         lastValidValues[index] == null ? '' : formatValue(lastValidValues[index] as Value)
 
       const hasError = resultKind === 'error' && code.trim() !== ''
-      const showError = hasError && committedLineIndices.has(index) && index !== activeLineIndex
+      const showError = hasError && (!hasFocus || index !== activeLineIndex)
 
       return { code, displayValue, hasError, showError }
     })
@@ -242,8 +230,13 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
 
   input.addEventListener('keyup', handleCursorMove)
   input.addEventListener('mouseup', handleCursorMove)
+  input.addEventListener('focus', () => {
+    hasFocus = true
+    updateActiveLineIndex()
+    sync()
+  })
   input.addEventListener('blur', () => {
-    commitActiveLine()
+    hasFocus = false
     sync()
   })
   input.addEventListener('scroll', () => {

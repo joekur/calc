@@ -117,6 +117,8 @@ test('defers error underline until leaving the line', () => {
   expect(input).not.toBeNull()
   if (!input) return
 
+  fireEvent.focus(input)
+
   input.value = '1 +'
   input.selectionStart = input.value.length
   input.selectionEnd = input.value.length
@@ -127,5 +129,41 @@ test('defers error underline until leaving the line', () => {
   input.selectionStart = input.value.length
   input.selectionEnd = input.value.length
   fireEvent.input(input)
+  expect(editor.querySelector('.tok-error')).not.toBeNull()
+})
+
+test('shows error underline on blur for active line', () => {
+  const editor = createEditor()
+  document.body.append(editor)
+
+  const input = editor.querySelector<HTMLTextAreaElement>('textarea.input')
+  expect(input).not.toBeNull()
+  if (!input) return
+
+  fireEvent.focus(input)
+  input.value = '1 +'
+  input.selectionStart = input.value.length
+  input.selectionEnd = input.value.length
+  fireEvent.input(input)
+  expect(editor.querySelector('.tok-error')).toBeNull()
+
+  fireEvent.blur(input)
+  expect(editor.querySelector('.tok-error')).not.toBeNull()
+})
+
+test('shows pasted errors for non-active lines', () => {
+  const editor = createEditor()
+  document.body.append(editor)
+
+  const input = editor.querySelector<HTMLTextAreaElement>('textarea.input')
+  expect(input).not.toBeNull()
+  if (!input) return
+
+  fireEvent.focus(input)
+  input.value = '1 +\n2 + 2\n'
+  input.selectionStart = input.value.length
+  input.selectionEnd = input.value.length
+  fireEvent.input(input)
+
   expect(editor.querySelector('.tok-error')).not.toBeNull()
 })
