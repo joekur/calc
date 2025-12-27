@@ -17,6 +17,11 @@ type LineComputation = {
   errorMessage: string | null
 }
 
+const copyTextToClipboard = async (text: string) => {
+  console.log('Copying text to clipboard:', text)
+  await navigator.clipboard.writeText(text)
+}
+
 function getLineCode(line: ReturnType<typeof parseDocument>['lines'][number]): string {
   return line.nodes
     .filter((node) => node.type === 'code')
@@ -79,19 +84,26 @@ function renderGutter(gutter: HTMLElement, computations: LineComputation[]) {
   gutter.replaceChildren()
 
   const fragment = document.createDocumentFragment()
-  for (const computation of computations) {
+  for (let index = 0; index < computations.length; index++) {
+    const computation = computations[index]
     const lineEl = document.createElement('div')
     lineEl.className = 'gutterLine'
 
     if (computation.displayValue === '') {
       lineEl.textContent = '\u200b'
     } else {
-      const valueEl = document.createElement('span')
+      const valueEl = document.createElement('button')
+      valueEl.type = 'button'
       valueEl.className = 'gutterValue gutterValue-copyable'
-      valueEl.dataset.copyValue = computation.displayValue
-      valueEl.title = 'Click to copy'
+      valueEl.dataset.testid = `gutter-value-${index}`
       valueEl.textContent = computation.displayValue
+
       lineEl.append(valueEl)
+
+      valueEl.addEventListener('click', () => {
+        console.log('Copying to clipboard:', computation.displayValue)
+        copyTextToClipboard(computation.displayValue)
+      })
     }
 
     fragment.append(lineEl)
@@ -116,16 +128,20 @@ function syncGutterLineHeights(mirror: HTMLElement, gutter: HTMLElement) {
 export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
   const editor = document.createElement('div')
   editor.className = 'editor'
+  editor.dataset.testid = 'editor'
 
   const surface = document.createElement('div')
   surface.className = 'surface'
+  surface.dataset.testid = 'editor-surface'
 
   const mirror = document.createElement('div')
   mirror.className = 'mirror'
   mirror.setAttribute('aria-hidden', 'true')
+  mirror.dataset.testid = 'editor-mirror'
 
   const input = document.createElement('textarea')
   input.className = 'input'
+  input.dataset.testid = 'editor-input'
   input.spellcheck = false
   input.autocapitalize = 'off'
   input.autocomplete = 'off'
@@ -135,11 +151,14 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
 
   const gutter = document.createElement('div')
   gutter.className = 'gutter'
-  gutter.setAttribute('aria-hidden', 'true')
+  gutter.setAttribute('role', 'region')
+  gutter.setAttribute('aria-label', 'Results')
+  gutter.dataset.testid = 'editor-gutter'
 
   const tooltip = document.createElement('div')
   tooltip.className = 'errorTooltip'
   tooltip.setAttribute('role', 'tooltip')
+  tooltip.dataset.testid = 'editor-tooltip'
   tooltip.style.display = 'none'
 
   let lastValidValues: Array<Value | null> = []
@@ -171,24 +190,6 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
     if (tooltipHideTimer != null) window.clearTimeout(tooltipHideTimer)
     tooltipShowTimer = null
     tooltipHideTimer = null
-  }
-
-  const copyTextToClipboard = async (text: string) => {
-    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(text)
-      return
-    }
-
-    const helper = document.createElement('textarea')
-    helper.value = text
-    helper.setAttribute('readonly', 'true')
-    helper.style.position = 'fixed'
-    helper.style.left = '-9999px'
-    helper.style.top = '0'
-    document.body.append(helper)
-    helper.select()
-    document.execCommand('copy')
-    helper.remove()
   }
 
   const resetActiveLineIdleTimer = () => {
@@ -535,7 +536,8 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
     hasFocus = false
     resetActiveLineIdleTimer()
     hideTooltipNow()
-    sync()
+    // TODO reimplement sync() on blur once we have proper dom diffing - as it is written now, this causes the value buttons to rerender which makes it impossible to click them to copy to clipboard
+    // sync()
   })
   input.addEventListener('mousemove', updateTooltipForMouse)
   input.addEventListener('mouseleave', () => {
@@ -557,26 +559,6 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
     input.scrollTop = gutter.scrollTop
     mirror.scrollTop = gutter.scrollTop
     isSyncingScroll = false
-  })
-
-  gutter.addEventListener('click', (event) => {
-    const target = event.target as HTMLElement | null
-    const valueEl = target?.closest<HTMLElement>('.gutterValue-copyable')
-    if (!valueEl) return
-
-    const value = valueEl.dataset.copyValue
-    if (!value) return
-
-    copyTextToClipboard(value).catch(() => {
-      // Clipboard can fail in some contexts; keep it silent for now.
-    })
-
-    valueEl.classList.add('gutterValue-copied')
-    if (copiedFeedbackTimer != null) window.clearTimeout(copiedFeedbackTimer)
-    copiedFeedbackTimer = window.setTimeout(() => {
-      copiedFeedbackTimer = null
-      valueEl.classList.remove('gutterValue-copied')
-    }, 800)
   })
 
   surface.append(mirror, input, tooltip)

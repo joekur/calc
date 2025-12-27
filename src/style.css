@@ -107,8 +107,12 @@ body {
 .gutterValue-copyable {
   display: inline-block;
   cursor: pointer;
+  font: inherit;
+  color: inherit;
   padding-inline: 8px;
   padding-block: 0;
+  border: 0;
+  background: transparent;
   border-radius: 8px;
 }
 

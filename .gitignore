@@ -1,5 +1,7 @@
 node_modules
 dist
 .vite
+.npm-cache
+__screenshots__
 .DS_Store
 *.tsbuildinfo
