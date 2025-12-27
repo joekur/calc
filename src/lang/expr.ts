@@ -13,7 +13,7 @@ type Expr =
   | { type: 'unary'; op: '+' | '-'; expr: Expr }
   | { type: 'binary'; op: '+' | '-' | '*' | '/' | '^'; left: Expr; right: Expr }
 
-export type Unit = 'none' | 'usd'
+export type Unit = 'none' | 'usd' | 'percent'
 
 export type Value = {
   amount: number
@@ -31,6 +31,10 @@ function numberValue(amount: number): Value {
 
 function usdValue(amount: number): Value {
   return { amount, unit: 'usd' }
+}
+
+function percentValue(amount: number): Value {
+  return { amount: amount / 100, unit: 'percent' }
 }
 
 function parseNumericLiteral(raw: string): number | null {
@@ -132,6 +136,9 @@ function tokenize(input: string): Token[] | EvalResult {
       }
 
       const end = scanNumericToken(input, index)
+      if (end < input.length && input[end] === '%') {
+        return { kind: 'error', error: 'Unexpected % after $ literal' }
+      }
       const rawNumber = input.slice(index, end)
       const value = parseNumericLiteral(rawNumber)
       if (value == null) {
@@ -152,13 +159,20 @@ function tokenize(input: string): Token[] | EvalResult {
     }
 
     if (/[0-9.]/.test(char)) {
-      const end = scanNumericToken(input, index)
+      const numberEnd = scanNumericToken(input, index)
+      const hasPercent = numberEnd < input.length && input[numberEnd] === '%'
+      const end = hasPercent ? numberEnd + 1 : numberEnd
+      const rawNumber = input.slice(index, numberEnd)
       const raw = input.slice(index, end)
-      const value = parseNumericLiteral(raw)
+      const value = parseNumericLiteral(rawNumber)
       if (value == null) {
-        return { kind: 'error', error: `Invalid number: ${raw}` }
+        return { kind: 'error', error: `Invalid number: ${rawNumber}` }
       }
-      tokens.push({ type: 'number', raw, value: numberValue(value) })
+      tokens.push({
+        type: 'number',
+        raw,
+        value: hasPercent ? percentValue(value) : numberValue(value)
+      })
       index = end
       continue
     }
@@ -310,6 +324,15 @@ function evalUnary(op: '+' | '-', value: Value): Value {
 
 function evalBinary(op: '+' | '-' | '*' | '/' | '^', left: Value, right: Value): EvalResult {
   if (op === '+' || op === '-') {
+    // `200 + 30%` == `200 + (30% of 200)`
+    if (right.unit === 'percent' && left.unit !== 'percent') {
+      const delta = left.amount * right.amount
+      return {
+        kind: 'value',
+        value: { unit: left.unit, amount: op === '+' ? left.amount + delta : left.amount - delta }
+      }
+    }
+
     // Promote unitless numbers to the other operand's unit.
     if (left.unit !== right.unit) {
       if (left.unit === 'none') left = { unit: right.unit, amount: left.amount }
@@ -327,6 +350,48 @@ function evalBinary(op: '+' | '-' | '*' | '/' | '^', left: Value, right: Value):
   }
 
   if (op === '*') {
+    // `... * 100%` is commonly used to express a unitless value as a percent.
+    // Example: 5/3 * 100% == 166.666…%
+    if (right.unit === 'percent' && left.unit === 'none' && right.amount === 1) {
+      return {
+        kind: 'value',
+        value: { unit: 'percent', amount: left.amount * right.amount }
+      }
+    }
+
+    // Percent on the right acts like a scale factor for the left operand.
+    // Example: 100 * 4% == 4
+    if (right.unit === 'percent' && left.unit !== 'percent') {
+      return { kind: 'value', value: { unit: left.unit, amount: left.amount * right.amount } }
+    }
+
+    // Percent * unitless keeps percent units.
+    // Example: 5% * 2 == 10%
+    if (left.unit === 'percent' && right.unit === 'none') {
+      return {
+        kind: 'value',
+        value: { unit: 'percent', amount: left.amount * right.amount }
+      }
+    }
+
+    // Percent on the left scales any non-percent unit value.
+    // Example: 4% * $100 == $4
+    if (left.unit === 'percent' && right.unit !== 'percent') {
+      return {
+        kind: 'value',
+        value: { unit: right.unit, amount: right.amount * left.amount }
+      }
+    }
+
+    // Percent * percent keeps percent units (treat left as scale factor).
+    // Example: 5% * 10% == 0.5%
+    if (left.unit === 'percent' && right.unit === 'percent') {
+      return {
+        kind: 'value',
+        value: { unit: 'percent', amount: right.amount * left.amount }
+      }
+    }
+
     if (left.unit !== 'none' && right.unit !== 'none') {
       return { kind: 'error', error: 'Cannot multiply two unit values' }
     }
@@ -510,6 +575,7 @@ function formatAmount(value: number): string {
 }
 
 export function formatValue(value: Value): string {
+  if (value.unit === 'percent') return `${formatAmount(value.amount * 100)}%`
   if (value.unit !== 'usd') return formatAmount(value.amount)
 
   if (!Number.isFinite(value.amount)) return `$${String(value.amount)}`

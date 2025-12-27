@@ -11,7 +11,7 @@ const defaultValue = `# Math expressions
 
 # Variables
 salary = $120,000
-taxRate = 0.30
+taxRate = 30%
 tax = salary * taxRate
 net = salary - tax
 

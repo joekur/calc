@@ -146,3 +146,48 @@ test('supports $ literals and unit propagation', () => {
   expect(evaluateExpression('$1 * $2').kind).toBe('error')
   expect(evaluateExpression('2 / $2').kind).toBe('error')
 })
+
+test('supports percent literals and percent-of-left addition semantics', () => {
+  expect(evaluateExpression('200 + 30%')).toEqual({
+    kind: 'value',
+    value: { amount: 260, unit: 'none' }
+  })
+  expect(evaluateExpression('200 - 30%')).toEqual({
+    kind: 'value',
+    value: { amount: 140, unit: 'none' }
+  })
+
+  expect(evaluateExpression('$200 + 30%')).toEqual({
+    kind: 'value',
+    value: { amount: 260, unit: 'usd' }
+  })
+})
+
+test('percent can be used as a unit in expressions', () => {
+  const result = evaluateExpression('5/3 * 100%')
+  expect(result.kind).toBe('value')
+  if (result.kind !== 'value') return
+  expect(result.value.unit).toBe('percent')
+  expect(result.value.amount).toBeCloseTo(1.6666666666666667, 8)
+  expect(formatValue(result.value)).toMatch(/%$/)
+})
+
+test('multiplying by percent scales and preserves left unit', () => {
+  expect(evaluateExpression('100 * 4%')).toEqual({
+    kind: 'value',
+    value: { amount: 4, unit: 'none' }
+  })
+
+  expect(evaluateExpression('$100 * 4%')).toEqual({
+    kind: 'value',
+    value: { amount: 4, unit: 'usd' }
+  })
+})
+
+test('percent times unitless stays percent', () => {
+  expect(evaluateExpression('5% * 2')).toEqual({
+    kind: 'value',
+    value: { amount: 0.1, unit: 'percent' }
+  })
+  expect(formatValue({ amount: 0.1, unit: 'percent' })).toBe('10%')
+})
