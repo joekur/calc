@@ -64,6 +64,7 @@ We are building a web-based calculator similar to Numi, supporting multiple line
 - **Evaluation environment**: cumulative per line for variables.
 - **Inline results**: rendered beside each line, not inserted into input.
 - **Selection handling**: delegated to native textarea.
+- **Rendering is incremental**: mirror/gutter keep stable per-line nodes and patch only changed lines; focus/blur only updates decorations (e.g. error underlines).
 
 ---
 

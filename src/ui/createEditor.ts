@@ -13,7 +13,6 @@ type LineComputation = {
   code: string
   displayValue: string
   hasError: boolean
-  showError: boolean
   errorMessage: string | null
 }
 
@@ -28,100 +27,79 @@ function getLineCode(line: ReturnType<typeof parseDocument>['lines'][number]): s
     .join('')
 }
 
-function renderMirror(
-  mirror: HTMLElement,
-  documentAst: ReturnType<typeof parseDocument>,
-  computations: LineComputation[]
-) {
-  mirror.replaceChildren()
+type DocumentAst = ReturnType<typeof parseDocument>
+type DocumentLine = DocumentAst['lines'][number]
 
-  const fragment = document.createDocumentFragment()
-
-  for (let index = 0; index < documentAst.lines.length; index++) {
-    const line = documentAst.lines[index]
-    const lineEl = document.createElement('div')
-    lineEl.className = 'mirrorLine'
-
-    let hasAnyText = false
-    for (const node of line.nodes) {
-      if (node.type === 'comment') {
-        const span = document.createElement('span')
-        span.className = 'tok-comment'
-        if (node.text !== '') hasAnyText = true
-        span.textContent = node.text
-        lineEl.append(span)
-        continue
-      }
-
-      const codeSpan = document.createElement('span')
-      codeSpan.className = 'tok-code'
-      if (computations[index]?.showError) codeSpan.classList.add('tok-error')
-
-      for (const token of tokenizeForHighlight(node.text)) {
-        const tokenEl = document.createElement('span')
-        if (token.type === 'ident') tokenEl.className = 'tok-variable'
-        if (token.type === 'assignTarget') tokenEl.className = 'tok-assignTarget'
-        if (token.type === 'number') tokenEl.className = 'tok-number'
-        if (token.type === 'operator') tokenEl.className = 'tok-operator'
-        if (token.type === 'paren') tokenEl.className = 'tok-paren'
-        tokenEl.textContent = token.text
-        if (token.text !== '') hasAnyText = true
-        codeSpan.append(tokenEl)
-      }
-
-      lineEl.append(codeSpan)
-    }
-
-    if (!hasAnyText) lineEl.textContent = '\u200b'
-    fragment.append(lineEl)
-  }
-
-  mirror.append(fragment)
+function getMirrorLineKey(line: DocumentLine): string {
+  return line.nodes.map((node) => `${node.type}:${node.text}`).join('|')
 }
 
-function renderGutter(gutter: HTMLElement, computations: LineComputation[]) {
-  gutter.replaceChildren()
+function renderMirrorLine(lineEl: HTMLElement, line: DocumentLine) {
+  lineEl.replaceChildren()
 
-  const fragment = document.createDocumentFragment()
-  for (let index = 0; index < computations.length; index++) {
-    const computation = computations[index]
-    const lineEl = document.createElement('div')
-    lineEl.className = 'gutterLine'
-
-    if (computation.displayValue === '') {
-      lineEl.textContent = '\u200b'
-    } else {
-      const valueEl = document.createElement('button')
-      valueEl.type = 'button'
-      valueEl.className = 'gutterValue gutterValue-copyable'
-      valueEl.dataset.testid = `gutter-value-${index}`
-      valueEl.textContent = computation.displayValue
-
-      lineEl.append(valueEl)
-
-      valueEl.addEventListener('click', () => {
-        console.log('Copying to clipboard:', computation.displayValue)
-        copyTextToClipboard(computation.displayValue)
-      })
+  let hasAnyText = false
+  for (const node of line.nodes) {
+    if (node.type === 'comment') {
+      const span = document.createElement('span')
+      span.className = 'tok-comment'
+      if (node.text !== '') hasAnyText = true
+      span.textContent = node.text
+      lineEl.append(span)
+      continue
     }
 
-    fragment.append(lineEl)
+    const codeSpan = document.createElement('span')
+    codeSpan.className = 'tok-code'
+
+    for (const token of tokenizeForHighlight(node.text)) {
+      const tokenEl = document.createElement('span')
+      if (token.type === 'ident') tokenEl.className = 'tok-variable'
+      if (token.type === 'assignTarget') tokenEl.className = 'tok-assignTarget'
+      if (token.type === 'number') tokenEl.className = 'tok-number'
+      if (token.type === 'operator') tokenEl.className = 'tok-operator'
+      if (token.type === 'paren') tokenEl.className = 'tok-paren'
+      tokenEl.textContent = token.text
+      if (token.text !== '') hasAnyText = true
+      codeSpan.append(tokenEl)
+    }
+
+    lineEl.append(codeSpan)
   }
 
-  gutter.append(fragment)
+  if (!hasAnyText) lineEl.textContent = '\u200b'
 }
 
-function syncGutterLineHeights(mirror: HTMLElement, gutter: HTMLElement) {
-  if (!mirror.isConnected) return
-
-  const mirrorLines = mirror.querySelectorAll<HTMLElement>('.mirrorLine')
-  const gutterLines = gutter.querySelectorAll<HTMLElement>('.gutterLine')
-  const count = Math.min(mirrorLines.length, gutterLines.length)
-
-  for (let index = 0; index < count; index++) {
-    const height = mirrorLines[index].getBoundingClientRect().height
-    gutterLines[index].style.height = height > 0 ? `${height.toFixed(2)}px` : ''
+function renderGutterLine(
+  lineEl: HTMLElement,
+  valueEl: HTMLButtonElement | null,
+  lineIndex: number,
+  displayValue: string
+): HTMLButtonElement | null {
+  if (displayValue === '') {
+    if (valueEl) valueEl.remove()
+    lineEl.textContent = '\u200b'
+    return null
   }
+
+  if (!valueEl) {
+    lineEl.replaceChildren()
+    valueEl = document.createElement('button')
+    valueEl.type = 'button'
+    valueEl.className = 'gutterValue gutterValue-copyable'
+    lineEl.append(valueEl)
+  }
+
+  valueEl.dataset.lineIndex = `${lineIndex}`
+  valueEl.dataset.testid = `gutter-value-${lineIndex}`
+  valueEl.textContent = displayValue
+  return valueEl
+}
+
+function resizeArray<T>(array: Array<T | null>, nextLength: number): Array<T | null> {
+  if (array.length === nextLength) return array
+  return Array.from({ length: nextLength }, (_, index) =>
+    index < array.length ? array[index] : null
+  )
 }
 
 export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
@@ -167,6 +145,10 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
   let isSyncingScroll = false
   let latestComputations: LineComputation[] = []
   let mirrorLines: HTMLElement[] = []
+  let mirrorLineKeys: Array<string | null> = []
+  let gutterLines: HTMLElement[] = []
+  let gutterLineValues: Array<string | null> = []
+  let gutterValueButtons: Array<HTMLButtonElement | null> = []
 
   let revealedErrorLineIndices = new Set<number>()
   let activeLineIdleTimer: number | null = null
@@ -183,6 +165,53 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
   const tooltipDelayMs = 300
   const tooltipGapPx = 8
   const tooltipViewportPaddingPx = 8
+  let pendingScrollTop: number | null = null
+  let scrollSyncFrame: number | null = null
+  let pendingHeightSyncIndices = new Set<number>()
+  let heightSyncFrame: number | null = null
+
+  const ensureLineElements = (
+    container: HTMLElement,
+    existing: HTMLElement[],
+    className: string,
+    count: number
+  ) => {
+    while (existing.length < count) {
+      const lineEl = document.createElement('div')
+      lineEl.className = className
+      container.append(lineEl)
+      existing.push(lineEl)
+    }
+
+    while (existing.length > count) {
+      const lineEl = existing.pop()
+      lineEl?.remove()
+    }
+  }
+
+  const scheduleHeightSyncForLine = (lineIndex: number) => {
+    pendingHeightSyncIndices.add(lineIndex)
+    if (heightSyncFrame != null) return
+
+    heightSyncFrame = requestAnimationFrame(() => {
+      heightSyncFrame = null
+      if (!mirror.isConnected) return
+
+      const indices = Array.from(pendingHeightSyncIndices).sort((a, b) => a - b)
+      pendingHeightSyncIndices = new Set<number>()
+      for (const index of indices) {
+        const mirrorLine = mirrorLines[index]
+        const gutterLine = gutterLines[index]
+        if (!mirrorLine || !gutterLine) continue
+        const height = mirrorLine.getBoundingClientRect().height
+        gutterLine.style.height = height > 0 ? `${height.toFixed(2)}px` : ''
+      }
+    })
+  }
+
+  const scheduleHeightSyncAll = () => {
+    for (let index = 0; index < mirrorLines.length; index++) scheduleHeightSyncForLine(index)
+  }
 
   const clearTooltipTimers = () => {
     if (tooltipShowTimer != null) window.clearTimeout(tooltipShowTimer)
@@ -214,7 +243,7 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
       if (activeLineActivityVersion !== versionAtSchedule) return
 
       revealedErrorLineIndices.add(activeLineIndex)
-      sync()
+      applyErrorDecorations()
     }, activeLineIdleDelayMs)
   }
 
@@ -222,6 +251,7 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
     clearTooltipTimers()
     pendingTooltip = null
     tooltipLineIndex = null
+    if (tooltip.style.display === 'none') return
     tooltip.style.display = 'none'
     tooltip.textContent = ''
   }
@@ -326,7 +356,7 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
 
     const computation = latestComputations[lineIndex]
     const message = computation?.errorMessage
-    if (!computation?.showError || !message) {
+    if (!message || !shouldShowErrorForLine(lineIndex)) {
       scheduleTooltipHide()
       return
     }
@@ -356,8 +386,42 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
     activeLineIndex = next
   }
 
+  const shouldShowErrorForLine = (lineIndex: number): boolean => {
+    const computation = latestComputations[lineIndex]
+    if (!computation?.hasError) return false
+    if (!hasFocus) return true
+    if (lineIndex !== activeLineIndex) return true
+    return revealedErrorLineIndices.has(lineIndex)
+  }
+
+  const applyErrorDecorations = () => {
+    for (let lineIndex = 0; lineIndex < mirrorLines.length; lineIndex++) {
+      const lineEl = mirrorLines[lineIndex]
+      const showError = shouldShowErrorForLine(lineIndex)
+      const codeSpans = lineEl.querySelectorAll<HTMLElement>('.tok-code')
+      for (const span of codeSpans) {
+        span.classList.toggle('tok-error', showError)
+      }
+    }
+
+    if (tooltipLineIndex != null) {
+      const tooltipComputation = latestComputations[tooltipLineIndex]
+      if (!tooltipComputation?.hasError || !tooltipComputation.errorMessage) {
+        hideTooltipNow()
+      } else if (tooltip.style.display !== 'none') {
+        if (!shouldShowErrorForLine(tooltipLineIndex)) {
+          hideTooltipNow()
+        } else {
+          positionTooltipForLine(tooltipLineIndex)
+        }
+      }
+    }
+  }
+
   const sync = () => {
     const documentAst = parseDocument(input.value)
+    const lineCount = documentAst.lines.length
+    const lineCountChanged = lineCount !== mirrorLines.length || lineCount !== gutterLines.length
 
     if (lastValidValues.length !== documentAst.lines.length) {
       lastValidValues = Array.from({ length: documentAst.lines.length }, (_, index) =>
@@ -460,14 +524,11 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
         lastValidValues[index] == null ? '' : formatValue(lastValidValues[index] as Value)
 
       const hasError = resultKind === 'error' && code.trim() !== ''
-      const showError =
-        hasError && (!hasFocus || index !== activeLineIndex || revealedErrorLineIndices.has(index))
 
       return {
         code,
         displayValue,
         hasError,
-        showError,
         errorMessage: hasError ? errorMessage : null
       }
     })
@@ -489,20 +550,38 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
 
     latestComputations = computations
 
-    renderMirror(mirror, documentAst, computations)
-    renderGutter(gutter, computations)
-    syncGutterLineHeights(mirror, gutter)
+    ensureLineElements(mirror, mirrorLines, 'mirrorLine', lineCount)
+    ensureLineElements(gutter, gutterLines, 'gutterLine', lineCount)
+    mirrorLineKeys = resizeArray(mirrorLineKeys, lineCount)
+    gutterLineValues = resizeArray(gutterLineValues, lineCount)
+    gutterValueButtons = resizeArray(
+      gutterValueButtons,
+      lineCount
+    ) as Array<HTMLButtonElement | null>
 
-    mirrorLines = Array.from(mirror.querySelectorAll<HTMLElement>('.mirrorLine'))
+    if (lineCountChanged) scheduleHeightSyncAll()
 
-    if (tooltipLineIndex != null) {
-      const tooltipComputation = latestComputations[tooltipLineIndex]
-      if (!tooltipComputation?.showError || !tooltipComputation.errorMessage) {
-        hideTooltipNow()
-      } else if (tooltip.style.display !== 'none') {
-        positionTooltipForLine(tooltipLineIndex)
+    for (let index = 0; index < lineCount; index++) {
+      const nextMirrorKey = getMirrorLineKey(documentAst.lines[index])
+      if (mirrorLineKeys[index] !== nextMirrorKey) {
+        renderMirrorLine(mirrorLines[index], documentAst.lines[index])
+        mirrorLineKeys[index] = nextMirrorKey
+        scheduleHeightSyncForLine(index)
+      }
+
+      const nextDisplayValue = computations[index]?.displayValue ?? ''
+      if (gutterLineValues[index] !== nextDisplayValue) {
+        gutterValueButtons[index] = renderGutterLine(
+          gutterLines[index],
+          gutterValueButtons[index],
+          index,
+          nextDisplayValue
+        )
+        gutterLineValues[index] = nextDisplayValue
       }
     }
+
+    applyErrorDecorations()
   }
 
   input.addEventListener('input', () => {
@@ -518,7 +597,8 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
     if (previous !== activeLineIndex) {
       resetActiveLineIdleTimer()
       scheduleActiveLineIdleErrorReveal()
-      sync()
+      if (latestComputations[previous]?.hasError) revealedErrorLineIndices.add(previous)
+      applyErrorDecorations()
     }
   }
 
@@ -529,35 +609,69 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
     updateActiveLineIndex()
     resetActiveLineIdleTimer()
     scheduleActiveLineIdleErrorReveal()
-    sync()
+    applyErrorDecorations()
   })
   input.addEventListener('blur', () => {
     hasFocus = false
     resetActiveLineIdleTimer()
     hideTooltipNow()
-    // TODO reimplement sync() on blur once we have proper dom diffing - as it is written now, this causes the value buttons to rerender which makes it impossible to click them to copy to clipboard
-    // sync()
+    for (let index = 0; index < latestComputations.length; index++) {
+      if (latestComputations[index]?.hasError) revealedErrorLineIndices.add(index)
+    }
+    applyErrorDecorations()
   })
   input.addEventListener('mousemove', updateTooltipForMouse)
   input.addEventListener('mouseleave', () => {
     scheduleTooltipHide()
   })
-  input.addEventListener('scroll', () => {
-    if (isSyncingScroll) return
-    isSyncingScroll = true
-    mirror.scrollTop = input.scrollTop
-    gutter.scrollTop = input.scrollTop
-    isSyncingScroll = false
+  const scheduleScrollSync = (scrollTop: number) => {
+    pendingScrollTop = scrollTop
+    if (scrollSyncFrame != null) return
 
-    hideTooltipNow()
-  })
+    scrollSyncFrame = requestAnimationFrame(() => {
+      scrollSyncFrame = null
+      if (pendingScrollTop == null) return
+      const next = pendingScrollTop
+      pendingScrollTop = null
+      isSyncingScroll = true
+      if (input.scrollTop !== next) input.scrollTop = next
+      if (mirror.scrollTop !== next) mirror.scrollTop = next
+      if (gutter.scrollTop !== next) gutter.scrollTop = next
+      isSyncingScroll = false
+    })
+  }
 
-  gutter.addEventListener('scroll', () => {
-    if (isSyncingScroll) return
-    isSyncingScroll = true
-    input.scrollTop = gutter.scrollTop
-    mirror.scrollTop = gutter.scrollTop
-    isSyncingScroll = false
+  input.addEventListener(
+    'scroll',
+    () => {
+      if (isSyncingScroll) return
+      scheduleScrollSync(input.scrollTop)
+
+      hideTooltipNow()
+    },
+    { passive: true }
+  )
+
+  gutter.addEventListener(
+    'scroll',
+    () => {
+      if (isSyncingScroll) return
+      scheduleScrollSync(gutter.scrollTop)
+    },
+    { passive: true }
+  )
+
+  gutter.addEventListener('click', (event) => {
+    const target = event.target as HTMLElement | null
+    if (!target) return
+    const button = target.closest<HTMLButtonElement>('button.gutterValue-copyable')
+    if (!button) return
+    const lineIndex = Number(button.dataset.lineIndex)
+    if (!Number.isFinite(lineIndex)) return
+    const displayValue = latestComputations[lineIndex]?.displayValue
+    if (!displayValue) return
+    console.log('Copying to clipboard:', displayValue)
+    copyTextToClipboard(displayValue)
   })
 
   surface.append(mirror, input, tooltip)

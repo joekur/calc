@@ -3,15 +3,15 @@ import { page, userEvent } from 'vitest/browser'
 import type { Locator } from 'vitest/browser'
 import { createEditor } from './createEditor'
 
-function dispatchMouseMove(target: HTMLElement, init: MouseEventInit) {
+function dispatchMouseMove(target: Element, init: MouseEventInit) {
   target.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, ...init }))
 }
 
-function dispatchMouseLeave(target: HTMLElement) {
+function dispatchMouseLeave(target: Element) {
   target.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }))
 }
 
-function getGutterLineValues(gutter: HTMLElement): string[] {
+function getGutterLineValues(gutter: Element): string[] {
   return Array.from(gutter.querySelectorAll<HTMLElement>('.gutterLine')).map((line) =>
     (line.textContent ?? '').replace(/\u200b/g, '').trim()
   )
@@ -190,7 +190,7 @@ test('defers error underline until leaving the line', async () => {
 })
 
 // See TODO in createEditor.ts:
-test.skip('shows error underline on blur for active line', async () => {
+test('shows error underline on blur for active line', async () => {
   const editor = mountEditor()
   const input = getInput(editor)
   const mirror = getMirror(editor).element()
