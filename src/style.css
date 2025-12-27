@@ -58,6 +58,13 @@ body {
   color: var(--app-text-fg);
 }
 
+#app {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+}
+
 .editor {
   display: flex;
   position: relative;

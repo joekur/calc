@@ -7,6 +7,42 @@ export type HighlightToken =
   | { type: 'paren'; text: string }
   | { type: 'unknown'; text: string }
 
+function scanNumericToken(source: string, start: number): number {
+  let end = start
+  let seenDot = false
+
+  while (end < source.length) {
+    const char = source[end]
+    if (/[0-9]/.test(char)) {
+      end++
+      continue
+    }
+
+    if (char === '.') {
+      if (seenDot) break
+      seenDot = true
+      end++
+      continue
+    }
+
+    if (char === ',') {
+      if (seenDot) break
+
+      const digits = source.slice(end + 1, end + 4)
+      if (/^[0-9]{3}$/.test(digits)) {
+        end++
+        continue
+      }
+
+      break
+    }
+
+    break
+  }
+
+  return end
+}
+
 export function tokenizeForHighlight(source: string): HighlightToken[] {
   const tokens: HighlightToken[] = []
 
@@ -34,8 +70,7 @@ export function tokenizeForHighlight(source: string): HighlightToken[] {
       let end = index + 1
       while (end < source.length && (source[end] === ' ' || source[end] === '\t')) end++
       if (end < source.length && /[0-9.]/.test(source[end])) {
-        end++
-        while (end < source.length && /[0-9.,]/.test(source[end])) end++
+        end = scanNumericToken(source, end)
         tokens.push({ type: 'number', text: source.slice(index, end) })
         index = end
         continue
@@ -43,8 +78,7 @@ export function tokenizeForHighlight(source: string): HighlightToken[] {
     }
 
     if (/[0-9.]/.test(char)) {
-      let end = index + 1
-      while (end < source.length && /[0-9.,]/.test(source[end])) end++
+      let end = scanNumericToken(source, index)
       if (end < source.length && source[end] === '%') end++
       tokens.push({ type: 'number', text: source.slice(index, end) })
       index = end
@@ -74,7 +108,8 @@ export function tokenizeForHighlight(source: string): HighlightToken[] {
       char === '*' ||
       char === '/' ||
       char === '^' ||
-      char === '='
+      char === '=' ||
+      char === ','
     ) {
       tokens.push({ type: 'operator', text: char })
       index++

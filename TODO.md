@@ -2,7 +2,6 @@
 
 ## Next (language + output)
 
-- Basic math functions: `max(a,b)`, `min(a,b)`, `round(x)`, `ceil(x)`, `floor(x)`.
 - Use vitest browser for createEditor tests, with real browser APIs
 - Support `// comments` like this, both line and in-line
 - Percent unit `%`

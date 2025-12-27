@@ -35,6 +35,45 @@ test('supports exponent operator ^', () => {
   })
 })
 
+test('supports basic math functions', () => {
+  expect(evaluateExpression('max(1, 2)')).toEqual({
+    kind: 'value',
+    value: { amount: 2, unit: 'none' }
+  })
+  expect(evaluateExpression('min(1, 2)')).toEqual({
+    kind: 'value',
+    value: { amount: 1, unit: 'none' }
+  })
+  expect(evaluateExpression('round(1.6)')).toEqual({
+    kind: 'value',
+    value: { amount: 2, unit: 'none' }
+  })
+  expect(evaluateExpression('ceil(1.1)')).toEqual({
+    kind: 'value',
+    value: { amount: 2, unit: 'none' }
+  })
+  expect(evaluateExpression('floor(1.9)')).toEqual({
+    kind: 'value',
+    value: { amount: 1, unit: 'none' }
+  })
+})
+
+test('math functions work with $ units', () => {
+  expect(evaluateExpression('max($5, 7)')).toEqual({
+    kind: 'value',
+    value: { amount: 7, unit: 'usd' }
+  })
+  expect(evaluateExpression('round($1.4)')).toEqual({
+    kind: 'value',
+    value: { amount: 1, unit: 'usd' }
+  })
+})
+
+test('reports invalid math function calls', () => {
+  expect(evaluateExpression('max(1)').kind).toBe('error')
+  expect(evaluateExpression('nope(1)').kind).toBe('error')
+})
+
 test('supports unary minus', () => {
   expect(evaluateExpression('-1 + 2')).toEqual({
     kind: 'value',
@@ -63,6 +102,11 @@ test('parses numbers with thousands separators', () => {
   expect(evaluateExpression('$2,000 + $1')).toEqual({
     kind: 'value',
     value: { amount: 2001, unit: 'usd' }
+  })
+
+  expect(evaluateExpression('max(1,000, 2)')).toEqual({
+    kind: 'value',
+    value: { amount: 1000, unit: 'none' }
   })
 })
 

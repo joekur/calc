@@ -4,10 +4,12 @@ type Token =
   | { type: 'op'; value: '+' | '-' | '*' | '/' | '^' }
   | { type: 'lparen' }
   | { type: 'rparen' }
+  | { type: 'comma' }
 
 type Expr =
   | { type: 'number'; value: Value }
   | { type: 'ident'; name: string }
+  | { type: 'call'; name: string; args: Expr[] }
   | { type: 'unary'; op: '+' | '-'; expr: Expr }
   | { type: 'binary'; op: '+' | '-' | '*' | '/' | '^'; left: Expr; right: Expr }
 
@@ -50,6 +52,42 @@ function parseNumericLiteral(raw: string): number | null {
   return value
 }
 
+function scanNumericToken(input: string, start: number): number {
+  let end = start
+  let seenDot = false
+
+  while (end < input.length) {
+    const char = input[end]
+    if (/[0-9]/.test(char)) {
+      end++
+      continue
+    }
+
+    if (char === '.') {
+      if (seenDot) break
+      seenDot = true
+      end++
+      continue
+    }
+
+    if (char === ',') {
+      if (seenDot) break
+
+      const digits = input.slice(end + 1, end + 4)
+      if (/^[0-9]{3}$/.test(digits)) {
+        end++
+        continue
+      }
+
+      break
+    }
+
+    break
+  }
+
+  return end
+}
+
 function tokenize(input: string): Token[] | EvalResult {
   const tokens: Token[] = []
 
@@ -72,6 +110,12 @@ function tokenize(input: string): Token[] | EvalResult {
       continue
     }
 
+    if (char === ',') {
+      tokens.push({ type: 'comma' })
+      index++
+      continue
+    }
+
     if (char === '+' || char === '-' || char === '*' || char === '/' || char === '^') {
       tokens.push({ type: 'op', value: char })
       index++
@@ -87,8 +131,7 @@ function tokenize(input: string): Token[] | EvalResult {
         return { kind: 'error', error: 'Expected number after $' }
       }
 
-      let end = index + 1
-      while (end < input.length && /[0-9.,]/.test(input[end])) end++
+      const end = scanNumericToken(input, index)
       const rawNumber = input.slice(index, end)
       const value = parseNumericLiteral(rawNumber)
       if (value == null) {
@@ -109,8 +152,7 @@ function tokenize(input: string): Token[] | EvalResult {
     }
 
     if (/[0-9.]/.test(char)) {
-      let end = index + 1
-      while (end < input.length && /[0-9.,]/.test(input[end])) end++
+      const end = scanNumericToken(input, index)
       const raw = input.slice(index, end)
       const value = parseNumericLiteral(raw)
       if (value == null) {
@@ -212,6 +254,34 @@ function parse(tokens: Token[]): Expr | EvalResult {
     }
     if (token.type === 'ident') {
       consume()
+
+      if (current()?.type === 'lparen') {
+        consume()
+        const args: Expr[] = []
+
+        if (current()?.type !== 'rparen') {
+          while (true) {
+            const expr = parseExpression()
+            if ('kind' in expr) return expr
+            args.push(expr)
+
+            if (current()?.type === 'comma') {
+              consume()
+              continue
+            }
+
+            break
+          }
+        }
+
+        if (current()?.type !== 'rparen') {
+          return { kind: 'error', error: 'Missing closing )' }
+        }
+        consume()
+
+        return { type: 'call', name: token.name, args }
+      }
+
       return { type: 'ident', name: token.name }
     }
     if (token.type === 'lparen') {
@@ -303,6 +373,67 @@ function evalExpr(expr: Expr, env: Map<string, Value>): EvalResult {
       const value = env.get(expr.name)
       if (value == null) return { kind: 'error', error: `Undefined variable: ${expr.name}` }
       return { kind: 'value', value }
+    }
+    case 'call': {
+      const evaluatedArgs: Value[] = []
+      for (const arg of expr.args) {
+        const result = evalExpr(arg, env)
+        if (result.kind !== 'value') return result
+        evaluatedArgs.push(result.value)
+      }
+
+      const expectArity = (count: number): EvalResult | null => {
+        if (evaluatedArgs.length !== count) {
+          return {
+            kind: 'error',
+            error: `${expr.name} expects ${count} argument${count === 1 ? '' : 's'}`
+          }
+        }
+        return null
+      }
+
+      const coercePairUnits = (
+        left: Value,
+        right: Value
+      ): { left: Value; right: Value } | EvalResult => {
+        if (left.unit === right.unit) return { left, right }
+        if (left.unit === 'none') return { left: { unit: right.unit, amount: left.amount }, right }
+        if (right.unit === 'none') return { left, right: { unit: left.unit, amount: right.amount } }
+        return { kind: 'error', error: 'Unit mismatch' }
+      }
+
+      if (expr.name === 'max' || expr.name === 'min') {
+        const arityError = expectArity(2)
+        if (arityError) return arityError
+        const left = evaluatedArgs[0]
+        const right = evaluatedArgs[1]
+        const coerced = coercePairUnits(left, right)
+        if ('kind' in coerced) return coerced
+        const winner =
+          expr.name === 'max'
+            ? coerced.left.amount >= coerced.right.amount
+              ? coerced.left
+              : coerced.right
+            : coerced.left.amount <= coerced.right.amount
+              ? coerced.left
+              : coerced.right
+        return { kind: 'value', value: winner }
+      }
+
+      if (expr.name === 'round' || expr.name === 'ceil' || expr.name === 'floor') {
+        const arityError = expectArity(1)
+        if (arityError) return arityError
+        const input = evaluatedArgs[0]
+        const amount =
+          expr.name === 'round'
+            ? Math.round(input.amount)
+            : expr.name === 'ceil'
+              ? Math.ceil(input.amount)
+              : Math.floor(input.amount)
+        return { kind: 'value', value: { unit: input.unit, amount } }
+      }
+
+      return { kind: 'error', error: `Unknown function: ${expr.name}` }
     }
     case 'unary': {
       const inner = evalExpr(expr.expr, env)
