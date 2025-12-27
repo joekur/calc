@@ -4,9 +4,33 @@ import { createEditor } from './ui/createEditor'
 const app = document.querySelector<HTMLDivElement>('#app')
 if (!app) throw new Error('Missing #app')
 
+const defaultValue = `# Math expressions
+2 + 2
+(10 - 3) / 10
+4 * 10 ^ 6
+
+# Variables
+salary = $120,000
+taxRate = 0.30
+tax = salary * taxRate
+net = salary - tax
+
+# Basic functions
+max(2, 3)
+min(2, 3)
+ceil(1.1)
+floor(1.1)
+
+# \`total\` sums all consecutive previous lines
+$1
+$2
+$3 * 3
+total
+`
+
 app.append(
   createEditor({
-    initialValue: '2 + 2\n# comments are ignored later\n',
+    initialValue: defaultValue,
     autofocus: true
   })
 )

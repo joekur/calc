@@ -18,7 +18,6 @@ type LineComputation = {
 }
 
 const copyTextToClipboard = async (text: string) => {
-  console.log('Copying text to clipboard:', text)
   await navigator.clipboard.writeText(text)
 }
 
