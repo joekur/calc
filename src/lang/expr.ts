@@ -1,7 +1,15 @@
+import {
+  parseUnitWords,
+  scanUnitAfterNumber,
+  tryGetMeasureInfo,
+  tryGetTemperatureInfo
+} from './units'
+
 type Token =
   | { type: 'number'; value: Value; raw: string }
   | { type: 'ident'; name: string }
   | { type: 'op'; value: '+' | '-' | '*' | '/' | '^' }
+  | { type: 'convert' }
   | { type: 'lparen' }
   | { type: 'rparen' }
   | { type: 'comma' }
@@ -12,8 +20,9 @@ type Expr =
   | { type: 'call'; name: string; args: Expr[] }
   | { type: 'unary'; op: '+' | '-'; expr: Expr }
   | { type: 'binary'; op: '+' | '-' | '*' | '/' | '^'; left: Expr; right: Expr }
+  | { type: 'convert'; expr: Expr; unit: string }
 
-export type Unit = 'none' | 'usd' | 'percent'
+export type Unit = 'none' | 'usd' | 'percent' | string
 
 export type Value = {
   amount: number
@@ -35,6 +44,10 @@ function usdValue(amount: number): Value {
 
 function percentValue(amount: number): Value {
   return { amount: amount / 100, unit: 'percent' }
+}
+
+function unitValue(amount: number, unit: string): Value {
+  return { amount, unit: unit as Unit }
 }
 
 function parseNumericLiteral(raw: string): number | null {
@@ -153,7 +166,13 @@ function tokenize(input: string): Token[] | EvalResult {
     if (/[A-Za-z_]/.test(char)) {
       let end = index + 1
       while (end < input.length && /[A-Za-z0-9_]/.test(input[end])) end++
-      tokens.push({ type: 'ident', name: input.slice(index, end) })
+      const word = input.slice(index, end)
+      const lower = word.toLowerCase()
+      if (lower === 'in' || lower === 'to' || lower === 'into' || lower === 'as') {
+        tokens.push({ type: 'convert' })
+      } else {
+        tokens.push({ type: 'ident', name: word })
+      }
       index = end
       continue
     }
@@ -163,16 +182,33 @@ function tokenize(input: string): Token[] | EvalResult {
       const hasPercent = numberEnd < input.length && input[numberEnd] === '%'
       const end = hasPercent ? numberEnd + 1 : numberEnd
       const rawNumber = input.slice(index, numberEnd)
-      const raw = input.slice(index, end)
       const value = parseNumericLiteral(rawNumber)
       if (value == null) {
         return { kind: 'error', error: `Invalid number: ${rawNumber}` }
       }
-      tokens.push({
-        type: 'number',
-        raw,
-        value: hasPercent ? percentValue(value) : numberValue(value)
-      })
+
+      if (hasPercent) {
+        tokens.push({
+          type: 'number',
+          raw: input.slice(index, end),
+          value: percentValue(value)
+        })
+        index = end
+        continue
+      }
+
+      const unitScan = scanUnitAfterNumber(input, numberEnd)
+      if (unitScan) {
+        tokens.push({
+          type: 'number',
+          raw: input.slice(index, unitScan.endIndex),
+          value: unitValue(value, unitScan.unit)
+        })
+        index = unitScan.endIndex
+        continue
+      }
+
+      tokens.push({ type: 'number', raw: input.slice(index, end), value: numberValue(value) })
       index = end
       continue
     }
@@ -198,7 +234,48 @@ function parse(tokens: Token[]): Expr | EvalResult {
     return token.value
   }
 
-  const parseExpression = (): Expr | EvalResult => parseAddSub()
+  const parseUnitSpec = (): string | EvalResult => {
+    const token = current()
+    if (!token || token.type !== 'ident') return { kind: 'error', error: 'Expected unit after in' }
+
+    const parts: string[] = []
+    parts.push(token.name)
+    consume()
+
+    const firstLower = parts[0].toLowerCase()
+    if (
+      firstLower === 'sq' ||
+      firstLower === 'square' ||
+      firstLower === 'cu' ||
+      firstLower === 'cubic' ||
+      firstLower === 'cb'
+    ) {
+      const next = current()
+      if (!next || next.type !== 'ident') return { kind: 'error', error: 'Expected unit after in' }
+      parts.push(next.name)
+      consume()
+    }
+
+    const parsed = parseUnitWords(parts)
+    if (!parsed) return { kind: 'error', error: `Unknown unit: ${parts.join(' ')}` }
+    return parsed.unit
+  }
+
+  const parseExpression = (): Expr | EvalResult => parseConvert()
+
+  const parseConvert = (): Expr | EvalResult => {
+    let left = parseAddSub()
+    if ('kind' in left) return left
+
+    while (current()?.type === 'convert') {
+      consume()
+      const unit = parseUnitSpec()
+      if (typeof unit !== 'string') return unit
+      left = { type: 'convert', expr: left, unit }
+    }
+
+    return left
+  }
 
   const parseAddSub = (): Expr | EvalResult => {
     let left = parseMulDiv()
@@ -322,6 +399,40 @@ function evalUnary(op: '+' | '-', value: Value): Value {
   return { amount: op === '-' ? -value.amount : value.amount, unit: value.unit }
 }
 
+function convertMeasureAmount(amount: number, fromUnit: string, toUnit: string): number | null {
+  const from = tryGetMeasureInfo(fromUnit)
+  const to = tryGetMeasureInfo(toUnit)
+  if (!from || !to) return null
+  if (from.power !== to.power) return null
+  const baseAmount = amount * from.toBase
+  return baseAmount / to.toBase
+}
+
+function convertTemperatureAmount(amount: number, fromUnit: string, toUnit: string): number | null {
+  const from = tryGetTemperatureInfo(fromUnit)
+  const to = tryGetTemperatureInfo(toUnit)
+  if (!from || !to) return null
+  const kelvin = from.toKelvin(amount)
+  return to.fromKelvin(kelvin)
+}
+
+function convertValue(value: Value, toUnit: string): EvalResult {
+  if (value.unit === toUnit) return { kind: 'value', value }
+  if (value.unit === 'none') return { kind: 'error', error: 'Cannot convert unitless value' }
+  if (value.unit === 'usd') return { kind: 'error', error: 'Currency conversion not supported' }
+  if (value.unit === 'percent') return { kind: 'error', error: 'Cannot convert percent value' }
+
+  const measureConverted = convertMeasureAmount(value.amount, value.unit, toUnit)
+  if (measureConverted != null)
+    return { kind: 'value', value: { unit: toUnit, amount: measureConverted } }
+
+  const tempConverted = convertTemperatureAmount(value.amount, value.unit, toUnit)
+  if (tempConverted != null)
+    return { kind: 'value', value: { unit: toUnit, amount: tempConverted } }
+
+  return { kind: 'error', error: 'Unit mismatch' }
+}
+
 function evalBinary(op: '+' | '-' | '*' | '/' | '^', left: Value, right: Value): EvalResult {
   if (op === '+' || op === '-') {
     // `200 + 30%` == `200 + (30% of 200)`
@@ -333,11 +444,18 @@ function evalBinary(op: '+' | '-' | '*' | '/' | '^', left: Value, right: Value):
       }
     }
 
-    // Promote unitless numbers to the other operand's unit.
     if (left.unit !== right.unit) {
       if (left.unit === 'none') left = { unit: right.unit, amount: left.amount }
       else if (right.unit === 'none') right = { unit: left.unit, amount: right.amount }
-      else return { kind: 'error', error: 'Unit mismatch' }
+      else {
+        const measureConverted = convertMeasureAmount(right.amount, right.unit, left.unit)
+        if (measureConverted != null) right = { unit: left.unit, amount: measureConverted }
+        else {
+          const tempConverted = convertTemperatureAmount(right.amount, right.unit, left.unit)
+          if (tempConverted != null) right = { unit: left.unit, amount: tempConverted }
+          else return { kind: 'error', error: 'Unit mismatch' }
+        }
+      }
     }
 
     return {
@@ -392,15 +510,31 @@ function evalBinary(op: '+' | '-' | '*' | '/' | '^', left: Value, right: Value):
       }
     }
 
-    if (left.unit !== 'none' && right.unit !== 'none') {
-      return { kind: 'error', error: 'Cannot multiply two unit values' }
+    if (left.unit === 'none' || right.unit === 'none') {
+      const unit = left.unit === 'none' ? right.unit : left.unit
+      return { kind: 'value', value: { unit, amount: left.amount * right.amount } }
     }
-    const unit = left.unit === 'none' ? right.unit : left.unit
-    return { kind: 'value', value: { unit, amount: left.amount * right.amount } }
+
+    const leftMeasure = tryGetMeasureInfo(left.unit)
+    const rightMeasure = tryGetMeasureInfo(right.unit)
+    if (leftMeasure && rightMeasure) {
+      const power = leftMeasure.power + rightMeasure.power
+      if (power < 0 || power > 3) return { kind: 'error', error: 'Unsupported unit exponent' }
+      const baseAmount = left.amount * leftMeasure.toBase * (right.amount * rightMeasure.toBase)
+      if (power === 0) return { kind: 'value', value: { unit: 'none', amount: baseAmount } }
+      const unit = power === 1 ? 'm' : `m${power}`
+      return { kind: 'value', value: { unit, amount: baseAmount } }
+    }
+
+    return { kind: 'error', error: 'Cannot multiply two unit values' }
   }
 
   if (op === '/') {
     if (right.amount === 0) return { kind: 'error', error: 'Division by zero' }
+
+    if (right.unit === 'percent' && left.unit !== 'percent') {
+      return { kind: 'value', value: { unit: left.unit, amount: left.amount / right.amount } }
+    }
 
     if (right.unit === 'none') {
       return { kind: 'value', value: { unit: left.unit, amount: left.amount / right.amount } }
@@ -410,11 +544,38 @@ function evalBinary(op: '+' | '-' | '*' | '/' | '^', left: Value, right: Value):
       return { kind: 'value', value: { unit: 'none', amount: left.amount / right.amount } }
     }
 
+    const leftMeasure = tryGetMeasureInfo(left.unit)
+    const rightMeasure = tryGetMeasureInfo(right.unit)
+    if (leftMeasure && rightMeasure) {
+      const power = leftMeasure.power - rightMeasure.power
+      if (power < 0 || power > 3) return { kind: 'error', error: 'Unsupported unit exponent' }
+      const baseAmount = (left.amount * leftMeasure.toBase) / (right.amount * rightMeasure.toBase)
+      if (power === 0) return { kind: 'value', value: { unit: 'none', amount: baseAmount } }
+      const unit = power === 1 ? 'm' : `m${power}`
+      return { kind: 'value', value: { unit, amount: baseAmount } }
+    }
+
     return { kind: 'error', error: 'Unit mismatch' }
   }
 
   if (op === '^') {
-    if (left.unit !== 'none' || right.unit !== 'none') {
+    if (right.unit !== 'none') return { kind: 'error', error: 'Cannot exponentiate unit values' }
+
+    const leftMeasure = tryGetMeasureInfo(left.unit)
+    if (leftMeasure) {
+      if (!Number.isInteger(right.amount) || right.amount < 0) {
+        return { kind: 'error', error: 'Exponent must be a non-negative integer for unit values' }
+      }
+      const power = leftMeasure.power * right.amount
+      if (power < 0 || power > 3) return { kind: 'error', error: 'Unsupported unit exponent' }
+      const baseAmount = Math.pow(left.amount * leftMeasure.toBase, right.amount)
+      if (!Number.isFinite(baseAmount)) return { kind: 'error', error: 'Invalid exponentiation' }
+      if (power === 0) return { kind: 'value', value: { unit: 'none', amount: baseAmount } }
+      const unit = power === 1 ? 'm' : `m${power}`
+      return { kind: 'value', value: { unit, amount: baseAmount } }
+    }
+
+    if (left.unit !== 'none') {
       return { kind: 'error', error: 'Cannot exponentiate unit values' }
     }
 
@@ -513,6 +674,11 @@ function evalExpr(expr: Expr, env: Map<string, Value>): EvalResult {
 
       return evalBinary(expr.op, left.value, right.value)
     }
+    case 'convert': {
+      const inner = evalExpr(expr.expr, env)
+      if (inner.kind !== 'value') return inner
+      return convertValue(inner.value, expr.unit)
+    }
   }
 }
 
@@ -576,7 +742,13 @@ function formatAmount(value: number): string {
 
 export function formatValue(value: Value): string {
   if (value.unit === 'percent') return `${formatAmount(value.amount * 100)}%`
-  if (value.unit !== 'usd') return formatAmount(value.amount)
+  if (value.unit !== 'usd') {
+    const temperature = tryGetTemperatureInfo(value.unit)
+    if (temperature) return `${formatAmount(value.amount)} ${temperature.display}`
+    const measure = tryGetMeasureInfo(value.unit)
+    if (measure) return `${formatAmount(value.amount)} ${measure.display}`
+    return formatAmount(value.amount)
+  }
 
   if (!Number.isFinite(value.amount)) return `$${String(value.amount)}`
 

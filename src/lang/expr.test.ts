@@ -191,3 +191,68 @@ test('percent times unitless stays percent', () => {
   })
   expect(formatValue({ amount: 0.1, unit: 'percent' })).toBe('10%')
 })
+
+test('parses and converts length units', () => {
+  expect(evaluateExpression('1 m')).toEqual({ kind: 'value', value: { amount: 1, unit: 'm' } })
+  expect(evaluateExpression('100 cm in m')).toEqual({
+    kind: 'value',
+    value: { amount: 1, unit: 'm' }
+  })
+  expect(evaluateExpression('1 m in cm')).toEqual({
+    kind: 'value',
+    value: { amount: 100, unit: 'cm' }
+  })
+})
+
+test('adds compatible units by converting to left unit', () => {
+  const sumMeters = evaluateExpression('1 m + 20 cm')
+  expect(sumMeters.kind).toBe('value')
+  if (sumMeters.kind !== 'value') return
+  expect(sumMeters.value.unit).toBe('m')
+  expect(sumMeters.value.amount).toBeCloseTo(1.2)
+
+  const sumCm = evaluateExpression('20 cm + 1 m')
+  expect(sumCm.kind).toBe('value')
+  if (sumCm.kind !== 'value') return
+  expect(sumCm.value.unit).toBe('cm')
+  expect(sumCm.value.amount).toBeCloseTo(120)
+})
+
+test('supports area units and conversions via sq prefix and power suffix', () => {
+  expect(evaluateExpression('20 sq cm')).toEqual({
+    kind: 'value',
+    value: { amount: 20, unit: 'cm2' }
+  })
+
+  const converted = evaluateExpression('6 m2 in cm2')
+  expect(converted.kind).toBe('value')
+  if (converted.kind !== 'value') return
+  expect(converted.value.unit).toBe('cm2')
+  expect(converted.value.amount).toBeCloseTo(60000)
+})
+
+test('supports volume units and conversions', () => {
+  const ml = evaluateExpression('1 l in ml')
+  expect(ml.kind).toBe('value')
+  if (ml.kind !== 'value') return
+  expect(ml.value.unit).toBe('ml')
+  expect(ml.value.amount).toBeCloseTo(1000)
+  const gallons = evaluateExpression('1 gal in l')
+  expect(gallons.kind).toBe('value')
+  if (gallons.kind !== 'value') return
+  expect(gallons.value.unit).toBe('l')
+  expect(gallons.value.amount).toBeCloseTo(3.785411784, 8)
+})
+
+test('supports temperature conversion', () => {
+  expect(evaluateExpression('0 c in f')).toEqual({
+    kind: 'value',
+    value: { amount: 32, unit: 'f' }
+  })
+
+  const celsius = evaluateExpression('100 f in c')
+  expect(celsius.kind).toBe('value')
+  if (celsius.kind !== 'value') return
+  expect(celsius.value.unit).toBe('c')
+  expect(celsius.value.amount).toBeCloseTo(37.7777777778, 8)
+})
