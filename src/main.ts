@@ -21,6 +21,13 @@ min(2, 3)
 ceil(1.1)
 floor(1.1)
 
+# Unit conversions
+1 m in cm
+1 m + 20 cm
+20 sq cm in cm2
+1 gal in l
+0 c in f
+
 # \`total\` sums all consecutive previous lines
 $1
 $2

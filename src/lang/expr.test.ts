@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { evaluateExpression, formatValue } from './expr'
+import { evaluateExpression, formatValue, formatValueForDisplay } from './expr'
 
 test('evaluates basic precedence', () => {
   expect(evaluateExpression('4 + 4 / 2')).toEqual({
@@ -255,4 +255,20 @@ test('supports temperature conversion', () => {
   if (celsius.kind !== 'value') return
   expect(celsius.value.unit).toBe('c')
   expect(celsius.value.amount).toBeCloseTo(37.7777777778, 8)
+})
+
+test('formats display values with a strict 11 character cap', () => {
+  const third = evaluateExpression('1/3')
+  expect(third.kind).toBe('value')
+  if (third.kind !== 'value') return
+  const text = formatValueForDisplay(third.value)
+  expect(text.length).toBeLessThanOrEqual(11)
+  expect(text).toBe('0.333333333')
+
+  const pct = evaluateExpression('5/3 * 100%')
+  expect(pct.kind).toBe('value')
+  if (pct.kind !== 'value') return
+  const pctText = formatValueForDisplay(pct.value)
+  expect(pctText.length).toBeLessThanOrEqual(11)
+  expect(pctText.endsWith('%')).toBe(true)
 })

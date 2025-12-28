@@ -1,5 +1,5 @@
 import type { Value } from '../lang/expr'
-import { addValues, formatValue } from '../lang/expr'
+import { addValues, formatValueForDisplay } from '../lang/expr'
 import { tokenizeForHighlight } from '../lang/highlight'
 import { evaluateLine } from '../lang/program'
 import { parseDocument } from '../lang/parse'
@@ -521,7 +521,7 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
       }
 
       const displayValue =
-        lastValidValues[index] == null ? '' : formatValue(lastValidValues[index] as Value)
+        lastValidValues[index] == null ? '' : formatValueForDisplay(lastValidValues[index] as Value)
 
       const hasError = resultKind === 'error' && code.trim() !== ''
 

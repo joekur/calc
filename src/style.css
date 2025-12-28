@@ -84,7 +84,7 @@ body {
 }
 
 .gutter {
-  width: 160px;
+  width: 175px;
   border-left: 1px solid var(--app-border);
   overflow-y: auto;
   overflow-x: auto;

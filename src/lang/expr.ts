@@ -769,3 +769,79 @@ export function formatValue(value: Value): string {
   if (fraction === '00') return `${sign}$${withCommas}`
   return `${sign}$${withCommas}.${fraction}`
 }
+
+function normalizeNumericText(text: string): string {
+  if (text.includes('e')) {
+    const [mantissaRaw, expRaw] = text.split('e')
+    const exponent = expRaw.replace(/^\+/, '')
+    const mantissa = mantissaRaw.replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1')
+    return `${mantissa}e${exponent}`
+  }
+
+  if (text.includes('.')) {
+    const trimmed = text.replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1')
+    return trimmed.endsWith('.') ? trimmed.slice(0, -1) : trimmed
+  }
+
+  return text
+}
+
+function formatNumberToFit(value: number, maxChars: number): string {
+  if (maxChars <= 0) return ''
+  if (!Number.isFinite(value)) return String(value).slice(0, maxChars)
+  if (value === 0) return '0'
+
+  const abs = Math.abs(value)
+  const sign = value < 0 ? '-' : ''
+
+  // Fast path: try a reasonably short precision first.
+  const tryPrecision = (sig: number): string => {
+    return normalizeNumericText(sign + abs.toPrecision(sig))
+  }
+
+  for (let sig = Math.min(15, maxChars); sig >= 1; sig--) {
+    const text = tryPrecision(sig)
+    if (text.length <= maxChars) return text
+  }
+
+  // Last resort: best-effort exponential.
+  for (let frac = Math.min(8, maxChars); frac >= 0; frac--) {
+    const text = normalizeNumericText(sign + abs.toExponential(frac))
+    if (text.length <= maxChars) return text
+  }
+
+  return (sign + String(abs)).slice(0, maxChars)
+}
+
+export function formatValueForDisplay(value: Value, maxChars: number = 11): string {
+  const full = formatValue(value)
+  if (full.length <= maxChars) return full
+
+  if (maxChars <= 0) return ''
+
+  if (value.unit === 'percent') {
+    const numberBudget = maxChars - 1
+    const numberText = formatNumberToFit(value.amount * 100, numberBudget)
+    return `${numberText}%`.slice(0, maxChars)
+  }
+
+  if (value.unit === 'usd') {
+    const sign = value.amount < 0 ? '-' : ''
+    const prefix = `${sign}$`
+    const numberBudget = maxChars - prefix.length
+    const numberText = formatNumberToFit(Math.abs(value.amount), numberBudget)
+    return `${prefix}${numberText}`.slice(0, maxChars)
+  }
+
+  const temperature = tryGetTemperatureInfo(value.unit)
+  const suffix = temperature
+    ? ` ${temperature.display}`
+    : (() => {
+        const measure = tryGetMeasureInfo(value.unit)
+        return measure ? ` ${measure.display}` : value.unit === 'none' ? '' : ` ${value.unit}`
+      })()
+
+  const numberBudget = maxChars - suffix.length
+  const numberText = formatNumberToFit(value.amount, numberBudget)
+  return `${numberText}${suffix}`.slice(0, maxChars)
+}
