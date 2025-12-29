@@ -1,0 +1,25 @@
+:root {
+  color-scheme: light;
+
+  /* App theme variables (Solarized light) */
+  --app-page-bg: var(--solarized-base2);
+  --app-surface-bg: var(--solarized-base3);
+  --app-text-fg: var(--solarized-base00);
+  --app-border: color-mix(in srgb, var(--solarized-base00) 25%, transparent);
+  --app-caret: var(--solarized-red);
+
+  /* Syntax theme variables */
+  --syntax-comment-fg: var(--solarized-base1);
+  --syntax-number-fg: var(--solarized-cyan);
+  --syntax-variable-fg: var(--solarized-blue);
+  --syntax-assign-target-fg: var(--solarized-violet);
+  --syntax-operator-fg: var(--solarized-yellow);
+  --syntax-paren-fg: var(--solarized-base01);
+
+  --gutter-fg: var(--solarized-green);
+  --gutter-error-fg: var(--solarized-red);
+
+  --tooltip-bg: var(--solarized-base2);
+  --tooltip-border: color-mix(in srgb, var(--solarized-base00) 25%, transparent);
+  --tooltip-fg: var(--solarized-base01);
+}

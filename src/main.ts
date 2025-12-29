@@ -1,5 +1,5 @@
 import './style.css'
-import { createEditor } from './ui/createEditor'
+import { createApp } from './ui/createApp'
 
 const app = document.querySelector<HTMLDivElement>('#app')
 if (!app) throw new Error('Missing #app')
@@ -36,7 +36,7 @@ total
 `
 
 app.append(
-  createEditor({
+  createApp({
     initialValue: defaultValue,
     autofocus: true
   })

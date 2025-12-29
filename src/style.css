@@ -1,5 +1,5 @@
 :root {
-  color-scheme: dark;
+  color-scheme: light dark;
   font-size: 24px;
   font-family:
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
@@ -27,28 +27,6 @@
   --solarized-blue: #268bd2;
   --solarized-cyan: #2aa198;
   --solarized-green: #859900;
-
-  /* App theme variables (map to palette above) */
-  --app-page-bg: #02222a;
-  --app-surface-bg: var(--solarized-base03);
-  --app-text-fg: var(--solarized-base0);
-  --app-border: color-mix(in srgb, var(--solarized-base0) 25%, transparent);
-  --app-caret: var(--solarized-red);
-
-  /* Syntax theme variables (tweak these freely) */
-  --syntax-comment-fg: var(--solarized-base01);
-  --syntax-number-fg: var(--solarized-cyan);
-  --syntax-variable-fg: var(--solarized-blue);
-  --syntax-assign-target-fg: var(--solarized-violet);
-  --syntax-operator-fg: var(--solarized-yellow);
-  --syntax-paren-fg: var(--solarized-base1);
-
-  --gutter-fg: var(--solarized-green);
-  --gutter-error-fg: var(--solarized-red);
-
-  --tooltip-bg: var(--solarized-base02);
-  --tooltip-border: color-mix(in srgb, var(--solarized-base0) 25%, transparent);
-  --tooltip-fg: var(--solarized-base1);
 }
 
 body {
@@ -63,6 +41,56 @@ body {
   justify-content: center;
   align-items: flex-start;
   min-height: 100vh;
+}
+
+.app {
+  width: min(900px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.appHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-inline: 4px;
+}
+
+.appTitle {
+  font-size: 16px;
+  line-height: 1;
+  color: color-mix(in srgb, var(--app-text-fg) 70%, transparent);
+  user-select: none;
+}
+
+.themeToggle {
+  display: inline-flex;
+  border: 1px solid var(--app-border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--app-surface-bg) 80%, transparent);
+}
+
+.themeToggleButton {
+  appearance: none;
+  border: 0;
+  font: inherit;
+  font-size: 16px;
+  padding: 8px 12px;
+  background: transparent;
+  color: color-mix(in srgb, var(--app-text-fg) 70%, transparent);
+  cursor: pointer;
+}
+
+.themeToggleButton[aria-pressed='true'] {
+  background: color-mix(in srgb, var(--app-text-fg) 12%, transparent);
+  color: var(--app-text-fg);
+}
+
+.themeToggleButton:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--app-caret) 70%, transparent);
+  outline-offset: -2px;
 }
 
 .editor {
