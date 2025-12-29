@@ -167,8 +167,6 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
   const tooltipDelayMs = 300
   const tooltipGapPx = 8
   const tooltipViewportPaddingPx = 8
-  let pendingScrollTop: number | null = null
-  let scrollSyncFrame: number | null = null
 
   const ensureLineRows = (count: number) => {
     while (lineRows.length < count) {
@@ -604,44 +602,6 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
   input.addEventListener('mouseleave', () => {
     scheduleTooltipHide()
   })
-  const scheduleScrollSync = (scrollTop: number) => {
-    pendingScrollTop = scrollTop
-    if (scrollSyncFrame != null) return
-
-    scrollSyncFrame = requestAnimationFrame(() => {
-      scrollSyncFrame = null
-      if (pendingScrollTop == null) return
-      const next = pendingScrollTop
-      pendingScrollTop = null
-      linesContent.style.transform = `translateY(${-next}px)`
-    })
-  }
-
-  input.addEventListener(
-    'scroll',
-    () => {
-      scheduleScrollSync(input.scrollTop)
-
-      hideTooltipNow()
-    },
-    { passive: true }
-  )
-
-  // linesLayer.addEventListener(
-  //   'wheel',
-  //   (event) => {
-  //     const target = event.target as HTMLElement | null
-  //     if (!target) return
-  //     const isInGutter =
-  //       target.closest('.gutterLine') != null ||
-  //       event.clientX >= editor.getBoundingClientRect().right - 175
-  //     if (!isInGutter) return
-  //     if (event.deltaY === 0) return
-  //     event.preventDefault()
-  //     input.scrollTop += event.deltaY
-  //   },
-  //   { passive: false }
-  // )
 
   linesLayer.addEventListener('click', (event) => {
     const target = event.target as HTMLElement | null
@@ -658,13 +618,11 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
   surface.append(input, tooltip)
   editor.append(surface, linesLayer, gutterDivider)
   sync()
-  scheduleScrollSync(input.scrollTop)
 
   // Perform a best-effort pass once connected to the DOM.
   requestAnimationFrame(() => {
     if (!editor.isConnected) return
     sync()
-    scheduleScrollSync(input.scrollTop)
   })
 
   if (options.autofocus) {
