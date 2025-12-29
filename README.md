@@ -1,6 +1,6 @@
 # calc
 
-Early-stage Numi-style web calculator.
+Web-based calculator notepad.
 
 ## Documentation
 
