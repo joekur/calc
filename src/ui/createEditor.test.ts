@@ -1,4 +1,4 @@
-import { expect, test, vi } from 'vitest'
+import { afterEach, describe, expect, test, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import type { Locator } from 'vitest/browser'
 import { createEditor } from './createEditor'
@@ -43,6 +43,8 @@ function getTooltip(editor: Locator): Locator {
 function getSurface(editor: Locator): Locator {
   return editor.getByTestId('editor-surface')
 }
+
+const defaultViewport = { width: window.innerWidth, height: window.innerHeight }
 
 test('mirrors textarea input', async () => {
   const editor = mountEditor()
@@ -610,4 +612,54 @@ test('breaking a definition shows errors in dependent lines', async () => {
 
   const errored = mirror.querySelectorAll('.tok-code.tok-error')
   expect(errored.length).toBeGreaterThanOrEqual(2)
+})
+
+describe('layout synchronization', () => {
+  afterEach(async () => {
+    await page.viewport(defaultViewport.width, defaultViewport.height)
+  })
+
+  test('keeps gutter line heights in sync after resizing', async () => {
+    const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+
+    await page.viewport(360, defaultViewport.height)
+
+    const editor = mountEditor()
+
+    // createEditor schedules a best-effort sync on rAF, and layout sync work is also rAF driven.
+    await nextFrame()
+    await nextFrame()
+
+    const input = getInput(editor)
+    const mirror = getMirror(editor).element()
+    const gutter = getGutter(editor).element()
+
+    const longWrappedExpression = Array.from({ length: 120 }, () => '1 + ').join('') + '1'
+    await userEvent.fill(input, `${longWrappedExpression}\n2`)
+
+    await nextFrame()
+    await nextFrame()
+
+    const mirrorLines = Array.from(mirror.querySelectorAll<HTMLElement>('.mirrorLine'))
+    const gutterLines = Array.from(gutter.querySelectorAll<HTMLElement>('.gutterLine'))
+    expect(mirrorLines.length).toBeGreaterThanOrEqual(2)
+    expect(gutterLines.length).toBeGreaterThanOrEqual(2)
+
+    const beforeMirrorHeight = mirrorLines[0].getBoundingClientRect().height
+    const beforeGutterHeight = gutterLines[0].getBoundingClientRect().height
+    const controlLineHeight = mirrorLines[1].getBoundingClientRect().height
+    expect(beforeMirrorHeight).toBeGreaterThan(controlLineHeight)
+    expect(beforeGutterHeight).toBeCloseTo(beforeMirrorHeight, 1)
+
+    await page.viewport(1200, defaultViewport.height)
+    window.dispatchEvent(new Event('resize'))
+
+    await nextFrame()
+    await nextFrame()
+
+    const afterMirrorHeight = mirrorLines[0].getBoundingClientRect().height
+    const afterGutterHeight = gutterLines[0].getBoundingClientRect().height
+    expect(afterMirrorHeight).toBeLessThan(beforeMirrorHeight)
+    expect(afterGutterHeight).toBeCloseTo(afterMirrorHeight, 1)
+  })
 })

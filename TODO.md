@@ -13,3 +13,4 @@
   - Share functionality would be nice - can we use the URL and compress the document into a query variable for easy sharingg / bookmarking? This way users could bookmark and organize in any way they'd like.
   - What's the best way to accomplish this with good UX without adding a backend server? Local storage?
 - Add more documentation to README of supported functionality
+- Add subtle indentation visual indicator to show when a line is wrapped

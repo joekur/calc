@@ -584,6 +584,56 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
     applyErrorDecorations()
   }
 
+  let layoutSyncFrame: number | null = null
+  let teardownLayoutSync: (() => void) | null = null
+
+  const scheduleLayoutSync = () => {
+    if (layoutSyncFrame != null) return
+    layoutSyncFrame = requestAnimationFrame(() => {
+      layoutSyncFrame = null
+      if (!editor.isConnected) return
+      scheduleHeightSyncAll()
+      if (tooltipLineIndex != null && tooltip.style.display !== 'none') {
+        positionTooltipForLine(tooltipLineIndex)
+      }
+    })
+  }
+
+  const setupLayoutSync = () => {
+    if (teardownLayoutSync) return
+
+    const abortController = new AbortController()
+    window.addEventListener('resize', scheduleLayoutSync, {
+      passive: true,
+      signal: abortController.signal
+    })
+
+    const resizeObserver =
+      typeof ResizeObserver === 'undefined'
+        ? null
+        : new ResizeObserver(() => {
+            scheduleLayoutSync()
+          })
+    resizeObserver?.observe(surface)
+
+    const disconnectObserver = new MutationObserver(() => {
+      if (editor.isConnected) return
+      teardownLayoutSync?.()
+    })
+
+    // Note: only start watching once connected, to avoid tearing down before mount.
+    disconnectObserver.observe(document.body, { subtree: true, childList: true })
+
+    teardownLayoutSync = () => {
+      abortController.abort()
+      resizeObserver?.disconnect()
+      disconnectObserver.disconnect()
+      if (layoutSyncFrame != null) cancelAnimationFrame(layoutSyncFrame)
+      layoutSyncFrame = null
+      teardownLayoutSync = null
+    }
+  }
+
   input.addEventListener('input', () => {
     updateActiveLineIndex()
     resetActiveLineIdleTimer()
@@ -670,7 +720,6 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
     if (!Number.isFinite(lineIndex)) return
     const displayValue = latestComputations[lineIndex]?.displayValue
     if (!displayValue) return
-    console.log('Copying to clipboard:', displayValue)
     copyTextToClipboard(displayValue)
   })
 
@@ -681,7 +730,9 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
   // Perform a best-effort pass once connected to the DOM.
   requestAnimationFrame(() => {
     if (!editor.isConnected) return
+    setupLayoutSync()
     sync()
+    scheduleLayoutSync()
   })
 
   if (options.autofocus) {
