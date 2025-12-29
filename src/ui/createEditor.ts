@@ -107,14 +107,19 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
   editor.className = 'editor'
   editor.dataset.testid = 'editor'
 
+  const linesLayer = document.createElement('div')
+  linesLayer.className = 'linesLayer'
+  linesLayer.setAttribute('role', 'region')
+  linesLayer.setAttribute('aria-label', 'Results')
+  linesLayer.dataset.testid = 'editor-mirror'
+
+  const linesContent = document.createElement('div')
+  linesContent.className = 'linesContent'
+  linesLayer.append(linesContent)
+
   const surface = document.createElement('div')
   surface.className = 'surface'
   surface.dataset.testid = 'editor-surface'
-
-  const mirror = document.createElement('div')
-  mirror.className = 'mirror'
-  mirror.setAttribute('aria-hidden', 'true')
-  mirror.dataset.testid = 'editor-mirror'
 
   const input = document.createElement('textarea')
   input.className = 'input'
@@ -126,11 +131,8 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
   input.value = options.initialValue ?? ''
   input.setAttribute('aria-label', 'Editor')
 
-  const gutter = document.createElement('div')
-  gutter.className = 'gutter'
-  gutter.setAttribute('role', 'region')
-  gutter.setAttribute('aria-label', 'Results')
-  gutter.dataset.testid = 'editor-gutter'
+  const gutterDivider = document.createElement('div')
+  gutterDivider.className = 'gutterDivider'
 
   const tooltip = document.createElement('div')
   tooltip.className = 'errorTooltip'
@@ -142,8 +144,8 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
   let lastValidAssignments: Array<{ name: string; value: Value } | null> = []
   let activeLineIndex = 0
   let hasFocus = false
-  let isSyncingScroll = false
   let latestComputations: LineComputation[] = []
+  let lineRows: HTMLElement[] = []
   let mirrorLines: HTMLElement[] = []
   let mirrorLineKeys: Array<string | null> = []
   let gutterLines: HTMLElement[] = []
@@ -167,50 +169,33 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
   const tooltipViewportPaddingPx = 8
   let pendingScrollTop: number | null = null
   let scrollSyncFrame: number | null = null
-  let pendingHeightSyncIndices = new Set<number>()
-  let heightSyncFrame: number | null = null
 
-  const ensureLineElements = (
-    container: HTMLElement,
-    existing: HTMLElement[],
-    className: string,
-    count: number
-  ) => {
-    while (existing.length < count) {
-      const lineEl = document.createElement('div')
-      lineEl.className = className
-      container.append(lineEl)
-      existing.push(lineEl)
+  const ensureLineRows = (count: number) => {
+    while (lineRows.length < count) {
+      const rowEl = document.createElement('div')
+      rowEl.className = 'editorRow'
+
+      const mirrorLine = document.createElement('div')
+      mirrorLine.className = 'mirrorLine'
+      mirrorLine.setAttribute('aria-hidden', 'true')
+
+      const gutterLine = document.createElement('div')
+      gutterLine.className = 'gutterLine'
+
+      rowEl.append(mirrorLine, gutterLine)
+      linesContent.append(rowEl)
+
+      lineRows.push(rowEl)
+      mirrorLines.push(mirrorLine)
+      gutterLines.push(gutterLine)
     }
 
-    while (existing.length > count) {
-      const lineEl = existing.pop()
-      lineEl?.remove()
+    while (lineRows.length > count) {
+      const rowEl = lineRows.pop()
+      rowEl?.remove()
+      mirrorLines.pop()
+      gutterLines.pop()
     }
-  }
-
-  const scheduleHeightSyncForLine = (lineIndex: number) => {
-    pendingHeightSyncIndices.add(lineIndex)
-    if (heightSyncFrame != null) return
-
-    heightSyncFrame = requestAnimationFrame(() => {
-      heightSyncFrame = null
-      if (!mirror.isConnected) return
-
-      const indices = Array.from(pendingHeightSyncIndices).sort((a, b) => a - b)
-      pendingHeightSyncIndices = new Set<number>()
-      for (const index of indices) {
-        const mirrorLine = mirrorLines[index]
-        const gutterLine = gutterLines[index]
-        if (!mirrorLine || !gutterLine) continue
-        const height = mirrorLine.getBoundingClientRect().height
-        gutterLine.style.height = height > 0 ? `${height.toFixed(2)}px` : ''
-      }
-    })
-  }
-
-  const scheduleHeightSyncAll = () => {
-    for (let index = 0; index < mirrorLines.length; index++) scheduleHeightSyncForLine(index)
   }
 
   const clearTooltipTimers = () => {
@@ -421,7 +406,6 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
   const sync = () => {
     const documentAst = parseDocument(input.value)
     const lineCount = documentAst.lines.length
-    const lineCountChanged = lineCount !== mirrorLines.length || lineCount !== gutterLines.length
 
     if (lastValidValues.length !== documentAst.lines.length) {
       lastValidValues = Array.from({ length: documentAst.lines.length }, (_, index) =>
@@ -550,8 +534,7 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
 
     latestComputations = computations
 
-    ensureLineElements(mirror, mirrorLines, 'mirrorLine', lineCount)
-    ensureLineElements(gutter, gutterLines, 'gutterLine', lineCount)
+    ensureLineRows(lineCount)
     mirrorLineKeys = resizeArray(mirrorLineKeys, lineCount)
     gutterLineValues = resizeArray(gutterLineValues, lineCount)
     gutterValueButtons = resizeArray(
@@ -559,14 +542,11 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
       lineCount
     ) as Array<HTMLButtonElement | null>
 
-    if (lineCountChanged) scheduleHeightSyncAll()
-
     for (let index = 0; index < lineCount; index++) {
       const nextMirrorKey = getMirrorLineKey(documentAst.lines[index])
       if (mirrorLineKeys[index] !== nextMirrorKey) {
         renderMirrorLine(mirrorLines[index], documentAst.lines[index])
         mirrorLineKeys[index] = nextMirrorKey
-        scheduleHeightSyncForLine(index)
       }
 
       const nextDisplayValue = computations[index]?.displayValue ?? ''
@@ -582,56 +562,6 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
     }
 
     applyErrorDecorations()
-  }
-
-  let layoutSyncFrame: number | null = null
-  let teardownLayoutSync: (() => void) | null = null
-
-  const scheduleLayoutSync = () => {
-    if (layoutSyncFrame != null) return
-    layoutSyncFrame = requestAnimationFrame(() => {
-      layoutSyncFrame = null
-      if (!editor.isConnected) return
-      scheduleHeightSyncAll()
-      if (tooltipLineIndex != null && tooltip.style.display !== 'none') {
-        positionTooltipForLine(tooltipLineIndex)
-      }
-    })
-  }
-
-  const setupLayoutSync = () => {
-    if (teardownLayoutSync) return
-
-    const abortController = new AbortController()
-    window.addEventListener('resize', scheduleLayoutSync, {
-      passive: true,
-      signal: abortController.signal
-    })
-
-    const resizeObserver =
-      typeof ResizeObserver === 'undefined'
-        ? null
-        : new ResizeObserver(() => {
-            scheduleLayoutSync()
-          })
-    resizeObserver?.observe(surface)
-
-    const disconnectObserver = new MutationObserver(() => {
-      if (editor.isConnected) return
-      teardownLayoutSync?.()
-    })
-
-    // Note: only start watching once connected, to avoid tearing down before mount.
-    disconnectObserver.observe(document.body, { subtree: true, childList: true })
-
-    teardownLayoutSync = () => {
-      abortController.abort()
-      resizeObserver?.disconnect()
-      disconnectObserver.disconnect()
-      if (layoutSyncFrame != null) cancelAnimationFrame(layoutSyncFrame)
-      layoutSyncFrame = null
-      teardownLayoutSync = null
-    }
   }
 
   input.addEventListener('input', () => {
@@ -683,18 +613,13 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
       if (pendingScrollTop == null) return
       const next = pendingScrollTop
       pendingScrollTop = null
-      isSyncingScroll = true
-      if (input.scrollTop !== next) input.scrollTop = next
-      if (mirror.scrollTop !== next) mirror.scrollTop = next
-      if (gutter.scrollTop !== next) gutter.scrollTop = next
-      isSyncingScroll = false
+      linesContent.style.transform = `translateY(${-next}px)`
     })
   }
 
   input.addEventListener(
     'scroll',
     () => {
-      if (isSyncingScroll) return
       scheduleScrollSync(input.scrollTop)
 
       hideTooltipNow()
@@ -702,16 +627,23 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
     { passive: true }
   )
 
-  gutter.addEventListener(
-    'scroll',
-    () => {
-      if (isSyncingScroll) return
-      scheduleScrollSync(gutter.scrollTop)
-    },
-    { passive: true }
-  )
+  // linesLayer.addEventListener(
+  //   'wheel',
+  //   (event) => {
+  //     const target = event.target as HTMLElement | null
+  //     if (!target) return
+  //     const isInGutter =
+  //       target.closest('.gutterLine') != null ||
+  //       event.clientX >= editor.getBoundingClientRect().right - 175
+  //     if (!isInGutter) return
+  //     if (event.deltaY === 0) return
+  //     event.preventDefault()
+  //     input.scrollTop += event.deltaY
+  //   },
+  //   { passive: false }
+  // )
 
-  gutter.addEventListener('click', (event) => {
+  linesLayer.addEventListener('click', (event) => {
     const target = event.target as HTMLElement | null
     if (!target) return
     const button = target.closest<HTMLButtonElement>('button.gutterValue-copyable')
@@ -723,16 +655,16 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
     copyTextToClipboard(displayValue)
   })
 
-  surface.append(mirror, input, tooltip)
-  editor.append(surface, gutter)
+  surface.append(input, tooltip)
+  editor.append(surface, linesLayer, gutterDivider)
   sync()
+  scheduleScrollSync(input.scrollTop)
 
   // Perform a best-effort pass once connected to the DOM.
   requestAnimationFrame(() => {
     if (!editor.isConnected) return
-    setupLayoutSync()
     sync()
-    scheduleLayoutSync()
+    scheduleScrollSync(input.scrollTop)
   })
 
   if (options.autofocus) {

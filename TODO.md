@@ -14,3 +14,4 @@
   - What's the best way to accomplish this with good UX without adding a backend server? Local storage?
 - Add more documentation to README of supported functionality
 - Add subtle indentation visual indicator to show when a line is wrapped
+- Support implicit multiplication on parens, eg `2(3)` == `2 * 3`

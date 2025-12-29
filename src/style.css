@@ -6,6 +6,8 @@
     monospace;
   line-height: 1.4;
 
+  --gutter-width: 200px;
+
   /*
     Theme palette: Solarized (dark)
     Use these to experiment with token colors without hunting hex codes.
@@ -106,27 +108,45 @@ body {
 }
 
 .surface {
-  position: relative;
+  position: absolute;
+  inset: 0;
+  right: var(--gutter-width);
   flex: 1;
-  min-height: 320px;
+  z-index: 2;
 }
 
-.gutter {
-  width: 175px;
-  border-left: 1px solid var(--app-border);
-  overflow-y: auto;
-  overflow-x: auto;
+.linesLayer {
+  flex: 1;
+  z-index: 1;
 }
 
-.gutter {
-  padding: 16px;
+.linesContent {
+  padding-block: 16px;
+  font: inherit;
   line-height: inherit;
-  white-space: pre;
-  text-align: right;
-  color: var(--gutter-fg, var(--app-text-fg));
+  tab-size: 2;
+  will-change: transform;
+}
+
+.editorRow {
+  display: flex;
+}
+
+.mirrorLine {
+  flex: 1;
+  padding-inline: 16px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .gutterLine {
+  width: var(--gutter-width);
+  padding-inline: 16px;
+  box-sizing: border-box;
+  line-height: inherit;
+  text-align: right;
+  color: var(--gutter-fg, var(--app-text-fg));
   white-space: nowrap;
   overflow: hidden;
   text-overflow: clip;
@@ -156,7 +176,6 @@ body {
   background: color-mix(in srgb, var(--solarized-green) 18%, transparent);
 }
 
-.mirror,
 .input {
   position: absolute;
   inset: 0;
@@ -172,18 +191,9 @@ body {
   scrollbar-width: none;
 }
 
-.mirror::-webkit-scrollbar {
-  width: 0;
-  height: 0;
-}
-
 .input::-webkit-scrollbar {
   width: 0;
   height: 0;
-}
-
-.mirror {
-  pointer-events: none;
 }
 
 .input {
@@ -193,6 +203,15 @@ body {
   resize: none;
   color: transparent;
   caret-color: var(--app-caret);
+}
+
+.gutterDivider {
+  position: absolute;
+  inset-block: 0;
+  right: var(--gutter-width);
+  width: 1px;
+  background: var(--app-border);
+  z-index: 3;
 }
 
 .tok-comment {
@@ -243,5 +262,4 @@ body {
   font-size: 14px;
   line-height: 1.3;
   white-space: pre-wrap;
-  pointer-events: none;
 }
