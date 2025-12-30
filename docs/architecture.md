@@ -1,8 +1,8 @@
-# Numi-Style Calculator Architecture Decisions
+# Calculator Architecture Decisions
 
 ## Overview
 
-We are building a web-based calculator similar to Numi, supporting multiple lines, variables, line comments, and inline results. The architecture prioritizes maintainability, correctness, and a clear separation between input, parsing, and rendering.
+We are building a web-based calculator, supporting multiple lines, variables, line comments, and inline results. The architecture prioritizes maintainability, correctness, and a clear separation between input, parsing, and rendering.
 
 ---
 
@@ -17,7 +17,6 @@ We are building a web-based calculator similar to Numi, supporting multiple line
 
 - Native multiline editing, undo/redo, and IME support.
 - Easier to manage than contenteditable for code-like input.
-- Matches Numi behavior.
 
 **Rejected alternatives:**
 
@@ -90,14 +89,14 @@ We are building a web-based calculator similar to Numi, supporting multiple line
 
 ## 5. Libraries Considered
 
-| Library/Framework | Fit for Numi-style | Notes                                                                                      |
-| ----------------- | ------------------ | ------------------------------------------------------------------------------------------ |
-| Lexical           | Medium             | Node-based document model complicates expression-first editing; could be a future upgrade. |
-| Slate             | Low                | Overkill for linear expressions; best for rich documents.                                  |
-| ProseMirror       | Low                | Designed for structured documents, not expressions.                                        |
-| Monaco/CodeMirror | Medium/High        | Could replace mirror for more editor-like behavior; heavier bundle.                        |
-| ContentEditable   | Low/Medium         | Harder to manage selection/IME for code-like input; unnecessary.                           |
-| Textarea + Mirror | High               | Native editing behavior, simplest path, scales well for calculator expressions.            |
+| Library/Framework | Fit for calc app | Notes                                                                                      |
+| ----------------- | ---------------- | ------------------------------------------------------------------------------------------ |
+| Lexical           | Medium           | Node-based document model complicates expression-first editing; could be a future upgrade. |
+| Slate             | Low              | Overkill for linear expressions; best for rich documents.                                  |
+| ProseMirror       | Low              | Designed for structured documents, not expressions.                                        |
+| Monaco/CodeMirror | Medium/High      | Could replace mirror for more editor-like behavior; heavier bundle.                        |
+| ContentEditable   | Low/Medium       | Harder to manage selection/IME for code-like input; unnecessary.                           |
+| Textarea + Mirror | High             | Native editing behavior, simplest path, scales well for calculator expressions.            |
 
 ---
 
@@ -121,5 +120,3 @@ We are building a web-based calculator similar to Numi, supporting multiple line
 - **Inline results:** Rendered separately, preserving input.
 - **Comments:** Simple line-based syntax.
 - **Libraries:** Minimal use; building our own provides correct, maintainable behavior.
-
-This architecture balances correctness, performance, and future flexibility, closely matching Numi's behavior while avoiding unnecessary complexity.

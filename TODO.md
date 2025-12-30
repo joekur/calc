@@ -10,3 +10,4 @@
 - Add more documentation to README of supported functionality
 - Add subtle indentation visual indicator to show when a line is wrapped
 - Support implicit multiplication on parens, eg `2(3)` == `2 * 3`
+- More units: time durations (ms/s/min/hr), speed (mph, km/h), data sizes (MB, GiB), angles (deg, rad).

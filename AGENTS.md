@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-This repository is an early-stage web calculator project inspired by Numi. The current source of truth is the architecture document in `docs/architecture.md` (textarea-backed editor, mirrored highlight layer, per-line tokenize → parse → evaluate).
+This repository is an early-stage web calculator project. The current source of truth is the architecture document in `docs/architecture.md` (textarea-backed editor, mirrored highlight layer, per-line tokenize → parse → evaluate).
 
 ## Project Structure & Module Organization
 
@@ -55,3 +55,4 @@ Keep a clear separation between:
 ## Agent-Specific Notes
 
 - Treat `docs/architecture.md` as a contract; if you deviate, update the doc in the same PR.
+- Treat `README.md` as user-facing documentation; when you add, change, or remove any user-visible behavior (syntax, units/functions, editor interactions, error behavior, etc.), update the `README.md` documentation section in the same PR.
