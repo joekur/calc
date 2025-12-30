@@ -9,7 +9,6 @@ Web-based calculator notepad: https://joekur.github.io/calc/
 - Arithmetic: `+`, `-`, `*`, `/`
 - Exponentiation: `^`
 - Parentheses: `(2 + 3) * 4`
-- Unary `+`/`-`: `-2 ^ 2` → `-4` (use `(-2) ^ 2` if you mean `4`)
 
 Results for each line are shown to the right. Click a value to copy to your clipboard.
 

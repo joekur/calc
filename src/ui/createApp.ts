@@ -9,12 +9,6 @@ export type CreateAppOptions = {
 
 const storageKey = 'calc.theme'
 
-function getPreferredTheme(): Theme {
-  const stored = window.localStorage.getItem(storageKey)
-  if (stored === 'dark' || stored === 'light') return stored
-  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-}
-
 function getThemeLinkElements(): { dark: HTMLLinkElement; light: HTMLLinkElement } | null {
   const dark = document.querySelector<HTMLLinkElement>('#theme-dark')
   const light = document.querySelector<HTMLLinkElement>('#theme-light')

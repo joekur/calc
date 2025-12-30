@@ -8,6 +8,12 @@
 
   --gutter-width: 200px;
 
+  @media (max-width: 550px) {
+    font-size: 16px;
+
+    --gutter-width: 145px;
+  }
+
   /*
     Theme palette: Solarized (dark)
     Use these to experiment with token colors without hunting hex codes.
@@ -33,7 +39,7 @@
 
 body {
   margin: 0;
-  padding: 24px;
+  padding: 1rem;
   background: var(--app-page-bg);
   color: var(--app-text-fg);
 }
@@ -156,6 +162,7 @@ body {
   cursor: pointer;
   font: inherit;
   color: inherit;
+  margin-inline: -8px;
   padding-inline: 8px;
   padding-block: 0;
   border: 0;

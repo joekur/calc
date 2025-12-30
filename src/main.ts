@@ -32,8 +32,7 @@ floor(1.1)
 $1
 $2
 $3 * 3
-total
-`
+total`
 
 app.append(
   createApp({
