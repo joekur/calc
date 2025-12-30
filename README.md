@@ -1,6 +1,6 @@
 # calc
 
-Web-based calculator notepad.
+Web-based calculator notepad: https://joekur.github.io/calc/
 
 ## Documentation
 
