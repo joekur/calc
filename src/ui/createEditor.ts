@@ -102,6 +102,14 @@ function resizeArray<T>(array: Array<T | null>, nextLength: number): Array<T | n
   )
 }
 
+function shouldSuppressAutofocus(): boolean {
+  const matchMedia = window.matchMedia
+  if (!matchMedia) return false
+  if (matchMedia('(pointer: coarse)').matches) return true
+  if (matchMedia('(hover: none)').matches && matchMedia('(max-width: 600px)').matches) return true
+  return false
+}
+
 export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
   const editor = document.createElement('div')
   editor.className = 'editor'
@@ -625,7 +633,7 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
     sync()
   })
 
-  if (options.autofocus) {
+  if (options.autofocus && !shouldSuppressAutofocus()) {
     queueMicrotask(() => input.focus())
   }
 
