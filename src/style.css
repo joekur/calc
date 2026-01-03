@@ -44,6 +44,16 @@ body {
   color: var(--app-text-fg);
 }
 
+button {
+  transition:
+    background-color 300ms ease,
+    color 300ms ease,
+    border-color 300ms ease;
+}
+
+html[data-theme-switching='true'] button {
+  transition: none !important;
+}
 #app {
   display: flex;
   justify-content: center;
@@ -63,6 +73,134 @@ body {
   align-items: center;
   justify-content: space-between;
   padding-inline: 4px;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.shareButton {
+  appearance: none;
+  border: 1px solid var(--app-border);
+  border-radius: 10px;
+  font: inherit;
+  font-size: 16px;
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--app-surface-bg) 80%, transparent);
+  color: color-mix(in srgb, var(--app-text-fg) 70%, transparent);
+  cursor: pointer;
+}
+
+.shareButton:hover {
+  background: color-mix(in srgb, var(--app-text-fg) 10%, transparent);
+}
+
+.shareButton:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--app-caret) 70%, transparent);
+  outline-offset: 2px;
+}
+
+.editorPanel {
+  width: min(900px, 100%);
+  border: 1px solid var(--app-border);
+  border-radius: 10px;
+  background: var(--app-surface-bg);
+  overflow: hidden;
+}
+
+.tabsBar {
+  display: flex;
+  align-items: stretch;
+  flex-wrap: nowrap;
+  gap: 6px;
+  padding: 8px;
+  font-size: 16px;
+  border-bottom: 1px solid var(--app-border);
+  background: color-mix(in srgb, var(--app-surface-bg) 92%, var(--app-text-fg) 8%);
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  border: 1px solid var(--app-border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--app-surface-bg) 85%, transparent);
+}
+
+.tabSelect {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: color-mix(in srgb, var(--app-text-fg) 70%, transparent);
+  font: inherit;
+  padding: 8px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.tabSelect.isActive {
+  background: color-mix(in srgb, var(--app-text-fg) 12%, transparent);
+  color: var(--app-text-fg);
+}
+
+.tabSelect:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--app-caret) 70%, transparent);
+  outline-offset: -2px;
+}
+
+.tabTitle {
+  display: inline-block;
+  max-width: 20ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tabClose {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: color-mix(in srgb, var(--app-text-fg) 55%, transparent);
+  font: inherit;
+  padding: 8px 10px;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.tabClose:hover {
+  background: color-mix(in srgb, var(--app-text-fg) 10%, transparent);
+  color: var(--app-text-fg);
+}
+
+.tabClose:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--app-caret) 70%, transparent);
+  outline-offset: -2px;
+}
+
+.tabAdd {
+  appearance: none;
+  border: 1px dashed color-mix(in srgb, var(--app-border) 75%, transparent);
+  border-radius: 10px;
+  background: transparent;
+  color: color-mix(in srgb, var(--app-text-fg) 70%, transparent);
+  font: inherit;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.tabAdd:hover {
+  background: color-mix(in srgb, var(--app-text-fg) 10%, transparent);
+  color: var(--app-text-fg);
 }
 
 .appTitle {
@@ -104,11 +242,11 @@ body {
 .editor {
   display: flex;
   position: relative;
-  width: min(900px, 100%);
+  width: 100%;
   min-height: 320px;
-  border: 1px solid var(--app-border);
-  border-radius: 10px;
-  background: var(--app-surface-bg);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: var(--app-text-fg);
   overflow: hidden;
 }

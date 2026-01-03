@@ -36,7 +36,6 @@ total`
 
 app.append(
   createApp({
-    initialValue: defaultValue,
-    autofocus: true
+    initialValue: defaultValue
   })
 )

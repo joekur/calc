@@ -6,7 +6,7 @@ import { parseDocument } from '../lang/parse'
 
 type CreateEditorOptions = {
   initialValue?: string
-  autofocus?: boolean
+  onChange?: (value: string) => void
 }
 
 type LineComputation = {
@@ -100,14 +100,6 @@ function resizeArray<T>(array: Array<T | null>, nextLength: number): Array<T | n
   return Array.from({ length: nextLength }, (_, index) =>
     index < array.length ? array[index] : null
   )
-}
-
-function shouldSuppressAutofocus(): boolean {
-  const matchMedia = window.matchMedia
-  if (!matchMedia) return false
-  if (matchMedia('(pointer: coarse)').matches) return true
-  if (matchMedia('(hover: none)').matches && matchMedia('(max-width: 600px)').matches) return true
-  return false
 }
 
 export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
@@ -575,6 +567,7 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
     resetActiveLineIdleTimer()
     scheduleActiveLineIdleErrorReveal()
     sync()
+    options.onChange?.(input.value)
   })
 
   const handleCursorMove = () => {
@@ -632,10 +625,6 @@ export function createEditor(options: CreateEditorOptions = {}): HTMLElement {
     if (!editor.isConnected) return
     sync()
   })
-
-  if (options.autofocus && !shouldSuppressAutofocus()) {
-    queueMicrotask(() => input.focus())
-  }
 
   return editor
 }

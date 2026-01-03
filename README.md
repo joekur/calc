@@ -12,6 +12,14 @@ Web-based calculator notepad: https://joekur.github.io/calc/
 
 Results for each line are shown to the right. Click a value to copy to your clipboard.
 
+### Documents (tabs, autosave, sharing)
+
+- Tabs are autosaved to local storage as you type.
+- Click `+` to create a new tab; click `×` to delete a tab (with confirmation).
+- Tab titles default to the first line of the document (if it’s a `#` comment, the `#` is omitted).
+- Click **Share** to encode the current tab into the URL as a compressed query parameter.
+- Opening a shared link imports it into your tabs automatically.
+
 ### Variables (assignments)
 
 Assign with `=`, to use in later expressions:
