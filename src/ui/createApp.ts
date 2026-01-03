@@ -257,7 +257,7 @@ export function createApp(options: CreateAppOptions = {}): HTMLElement {
     }
 
     renderTabs()
-    mountEditor(false)
+    mountEditor()
     saveNow()
   }
 

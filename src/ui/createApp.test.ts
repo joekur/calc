@@ -115,7 +115,7 @@ test('imports shared document from URL into tabs', async () => {
   document.body.append(app)
 
   const input = page.getByRole('textbox', { name: 'Editor' })
-  expect(input.element().value).toBe(shared)
+  expect((input.element() as HTMLTextAreaElement).value).toBe(shared)
   expect(window.location.search).toBe('')
 
   const stored = localStorage.getItem('calc.documents.v1')
