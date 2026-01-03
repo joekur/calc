@@ -4,7 +4,10 @@ import { createApp } from './ui/createApp'
 const app = document.querySelector<HTMLDivElement>('#app')
 if (!app) throw new Error('Missing #app')
 
-const defaultValue = `# Math expressions
+const defaultValue = `# README
+# Calc is a handy tool for napkin math.
+
+# Math expressions
 2 + 2
 (10 - 3) / 10
 4 * 10 ^ 6
